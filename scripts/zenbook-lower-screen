@@ -27,9 +27,15 @@ function _osd() {
 }
 
 function _scale() { gdctl show | grep "Scale:" | head -1 | grep -oP '[\d.]+'; }
-function _count() { gdctl show | grep "Logical monitor #" | wc -l; }
 
+# Estado real del panel (DRM): "enabled"/"disabled". Es más fiable que contar monitores lógicos,
+# que con un monitor externo conectado cuenta de más. Si no se puede leer, no se asume nada.
+function _lower_state() { cat /sys/class/drm/card*-"$MONITOR_LOWER"/enabled 2>/dev/null | head -1; }
+
+# on/off no hacen nada si la pantalla ya está así: reaplicar la disposición reordena las ventanas,
+# repite el aviso y reasigna touchscreens sin necesidad (p. ej. al despertar de la suspensión).
 function _on() {
+    if [[ "$(_lower_state)" == "enabled" ]]; then echo "Pantalla inferior ya estaba encendida"; return; fi
     local scale; scale=$(_scale)
     gdctl set \
         --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" \
@@ -41,6 +47,7 @@ function _on() {
 }
 
 function _off() {
+    if [[ "$(_lower_state)" == "disabled" ]]; then echo "Pantalla inferior ya estaba apagada"; return; fi
     local scale; scale=$(_scale)
     gdctl set --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER"
     _osd off
@@ -50,10 +57,10 @@ function _off() {
 case "${1:-toggle}" in
     on)     _on ;;
     off)    _off ;;
-    toggle) (( $(_count) >= 2 )) && _off || _on ;;
+    toggle) [[ "$(_lower_state)" == "enabled" ]] && _off || _on ;;
     status)
-        count=$(_count); scale=$(_scale)
-        (( count >= 2 )) && state="ON" || state="OFF"
+        scale=$(_scale)
+        [[ "$(_lower_state)" == "enabled" ]] && state="ON" || state="OFF"
         echo "Superior: $MONITOR_UPPER | Inferior: $MONITOR_LOWER → $state | Escala: $scale"
         ;;
     *)

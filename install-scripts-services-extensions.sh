@@ -16,6 +16,8 @@ echo "==> Scripts en /usr/local/bin"
 for s in "$DIR"/scripts/zenbook-*; do
     sudo install -m 755 "$s" /usr/local/bin/
 done
+# Hook de suspensión: apaga la luz del teclado al suspender y la restaura al despertar
+sudo ln -sf /usr/local/bin/zenbook-keyboard-backlight-sleep /usr/lib/systemd/system-sleep/zenbook-keyboard-backlight-sleep
 
 # Nombres anteriores (los scripts se renombraron con nombres descriptivos en inglés): se retiran
 # los ejecutables viejos para no dejar duplicados ni enlaces rotos. zenbook-inicio y zenbook-power se eliminaron.

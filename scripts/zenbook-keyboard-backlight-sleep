@@ -1,0 +1,51 @@
+#!/bin/bash
+# Apaga la luz del teclado al suspender y la deja como estaba al despertar.
+#
+# No se ejecuta a mano: lo llama systemd-sleep como root (hook en /usr/lib/systemd/system-sleep/,
+# enlazado por install-scripts-services-extensions.sh) con "pre|post" y el tipo de suspensión.
+#   pre   Guarda el nivel actual (KB_STATE_FILE) en /run y apaga la luz.
+#   post  Lanza (systemd-run) la restauración de ese mismo nivel, no uno fijo, sin retrasar el
+#         despertar. El teclado puede tardar en volver (Bluetooth se reconecta, USB se reenumera),
+#         así que "restore" reintenta durante ~25 s.
+#
+# Si no se conoce el nivel (KB_STATE_FILE vacío o inexistente) no toca nada.
+
+KB_STATE_FILE="/tmp/kb-backlight-level"
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+SAVED="/run/zenbook-keyboard-backlight-sleep"
+BACKLIGHT=/usr/local/bin/zenbook-keyboard-backlight
+
+case "$1" in
+    pre)
+        level=$(cat "$KB_STATE_FILE" 2>/dev/null)
+        [[ "$level" =~ ^[0-3]$ ]] || exit 0
+        echo "$level" > "$SAVED"
+        # Apagar escribe 0 en KB_STATE_FILE; el nivel real queda guardado en $SAVED
+        [[ "$level" == 0 ]] || "$BACKLIGHT" 0 > /dev/null 2>&1
+        exit 0
+        ;;
+    post)
+        [[ -r "$SAVED" ]] || exit 0
+        level=$(cat "$SAVED"); rm -f "$SAVED"
+        [[ "$level" =~ ^[0-3]$ ]] || exit 0
+        # Un proceso en segundo plano NO sirve: al terminar la suspensión, systemd-suspend.service
+        # se limpia y mata todo lo que quede en su cgroup (verificado: la luz se quedaba en 0).
+        # Una unidad transitoria propia sobrevive y no retrasa el despertar (--no-block).
+        systemd-run --quiet --no-block --collect --unit=zenbook-keyboard-backlight-restore \
+            "$0" restore "$level" > /dev/null 2>&1
+        exit 0
+        ;;
+    restore)
+        # Lo ejecuta la unidad transitoria: el teclado puede tardar en volver (Bluetooth se
+        # reconecta, USB se reenumera), así que se reintenta unos 25 s.
+        level="$2"
+        [[ "$level" =~ ^[0-3]$ ]] || exit 1
+        sleep 2
+        for _ in $(seq 1 25); do
+            "$BACKLIGHT" "$level" > /dev/null 2>&1 && exit 0
+            sleep 1
+        done
+        exit 1
+        ;;
+esac
+exit 0

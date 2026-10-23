@@ -13,6 +13,7 @@
 
 KB_NAME="Zenbook Duo"
 KB_EVENT_DELAY=0.3   # s de espera tras un evento udev antes de evaluar el teclado
+KB_ABSENT_DELAY=3    # s extra antes de dar por desconectado el teclado (al despertar tarda en volver)
 [[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
 
 BUS_FILE="/tmp/zenbook-kb-bus"           # último bus aplicado
@@ -101,6 +102,12 @@ function _watch() {
             sleep "$KB_EVENT_DELAY"
             local new_bus prev_bus
             new_bus=$(_kb_bus_type)
+            if [[ "$new_bus" == "none" ]]; then
+                # Al despertar de la suspensión el teclado desaparece unos segundos (USB se
+                # reenumera, Bluetooth se reconecta): no reaccionar al hueco, solo a una ausencia real
+                sleep "$KB_ABSENT_DELAY"
+                new_bus=$(_kb_bus_type)
+            fi
             prev_bus=$(cat "$BUS_FILE" 2>/dev/null)
             if [[ "$new_bus" != "$prev_bus" ]]; then
                 echo "$new_bus" > "$BUS_FILE"

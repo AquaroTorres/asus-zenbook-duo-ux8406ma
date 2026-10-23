@@ -18,6 +18,7 @@ Detalles técnicos y decisiones de diseño: [AGENTS.md](AGENTS.md).
 | Script | Qué hace |
 |---|---|
 | `zenbook-keyboard-backlight` | Cambia o cicla el nivel de luz del teclado (0 a 3), por USB y Bluetooth, y lo muestra en el indicador inferior |
+| `zenbook-keyboard-backlight-sleep` | Hook de suspensión: apaga la luz del teclado al suspender y la restaura al despertar al mismo nivel que tenía |
 | `zenbook-lower-screen` | Enciende, apaga o alterna la pantalla inferior |
 | `zenbook-keyboard-monitor` | Servicio: apaga la pantalla inferior con el teclado por USB y la enciende con Bluetooth o sin teclado; reaplica el bloqueo Fn y la luz de F9 cuando el teclado aparece. No toca la luz del teclado |
 | `zenbook-hotkeys` | Servicio: escucha F4, F5, F6, F8, F9, Fn+Esc y la tecla de pantalla, y ejecuta la acción de cada una |
@@ -119,6 +120,7 @@ por defecto.
 | `KB_NAME` | `Zenbook Duo` | Texto que identifica al teclado |
 | `KB_USB_ID` | `0b05:1b2c` | Vendor:Product del teclado por USB (`lsusb`) |
 | `KB_STATE_FILE` | `/tmp/kb-backlight-level` | Dónde se guarda el nivel de luz |
+| `KB_ABSENT_DELAY` | `3` | Segundos extra que `zenbook-keyboard-monitor` espera antes de dar el teclado por desconectado (al despertar tarda en volver). Solo retrasa encender la pantalla inferior al desenchufar el USB sin Bluetooth |
 | `KB_EVENT_DELAY` | `0.3` | Segundos que `zenbook-keyboard-monitor` espera tras un evento del teclado antes de decidir USB/BT/desconectado. Menos = más rápido; muy bajo puede actuar a mitad del enchufe |
 | `BT_SCAN_SECONDS` | `15` | Duración del escaneo en `zenbook-bluetooth-keyboard` |
 | `BT_KB_PATTERN` | `zenbook duo keyboard\|ASUS Keyboard` | Nombre del teclado BT (`grep -i`) |
@@ -141,11 +143,21 @@ USB y por Bluetooth (por hidraw, sin desacoplar el driver del teclado). Se auto-
 de sudoers. Al cambiar el nivel (F4 o cualquier llamada) muestra el indicador inferior
 de GNOME: el texto "Luz del teclado" y el nivel en la barra (vía `osd-zenbook`).
 
+### `zenbook-keyboard-backlight-sleep`: luz del teclado al suspender
+No se ejecuta a mano: `systemd-sleep` lo llama como root al suspender o hibernar (el instalador lo
+enlaza en `/usr/lib/systemd/system-sleep/`).
+
+- **Al suspender:** guarda el nivel actual y apaga la luz.
+- **Al despertar:** restaura **ese mismo nivel**, no uno fijo. El teclado puede tardar en volver
+  (el Bluetooth se reconecta, el USB se reenumera), así que reintenta hasta unos 25 s desde una unidad
+  transitoria de systemd (`zenbook-keyboard-backlight-restore`) y no retrasa el despertar.
+- Si no conoce el nivel (por ejemplo, tras reiniciar y sin haberlo cambiado), no toca nada.
+
 ### `zenbook-lower-screen`: pantalla inferior
 ```
 zenbook-lower-screen [on|off|toggle|status]
 ```
-Enciende o apaga eDP-2 (debajo de eDP-1, con la misma escala). Al encenderla reaplica el mapeo de
+Enciende o apaga eDP-2 (debajo de eDP-1, con la misma escala). `on` y `off` no hacen nada si la pantalla ya está en ese estado (no reordenan ventanas ni repiten el aviso). Al encenderla reaplica el mapeo de
 touchscreens y muestra "Pantalla inferior: encendida|apagada" (el icono sale atenuado cuando está
 apagada). Solo cambia la pantalla: quién decide cuándo es `zenbook-keyboard-monitor`; la tecla
 dedicada usa `toggle`.
