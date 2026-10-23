@@ -34,12 +34,33 @@ function _lower_state() { cat /sys/class/drm/card*-"$MONITOR_LOWER"/enabled 2>/d
 
 # on/off no hacen nada si la pantalla ya está así: reaplicar la disposición reordena las ventanas,
 # repite el aviso y reasigna touchscreens sin necesidad (p. ej. al despertar de la suspensión).
+# Rotación actual de la pantalla superior (normal|90|180|270). on/off la conservan: antes reaplicaban
+# siempre "normal", y como el acelerómetro solo avisa cuando el equipo se mueve, la autorrotación no
+# volvía a girar las pantallas y quedaban en horizontal con el equipo en vertical.
+function _upper_transform() {
+    gdctl show 2>/dev/null | awk -v c="$MONITOR_UPPER" '
+        /Logical monitor #/ { t = "normal" }
+        /Transform:/ { t = $NF }
+        $0 ~ ("──" c " \\(") && $0 !~ /Monitor / { print t; found = 1; exit }
+        END { if (!found) print "normal" }'
+}
+
+# on/off no hacen nada si la pantalla ya está así: reaplicar la disposición reordena las ventanas,
+# repite el aviso y reasigna touchscreens sin necesidad (p. ej. al despertar de la suspensión).
 function _on() {
     if [[ "$(_lower_state)" == "enabled" ]]; then echo "Pantalla inferior ya estaba encendida"; return; fi
-    local scale; scale=$(_scale)
+    local scale transform side
+    scale=$(_scale); transform=$(_upper_transform)
+    # Misma disposición que zenbook-screen-rotation: la inferior queda "debajo" según la rotación
+    case "$transform" in
+        90)  side=(--left-of  "$MONITOR_UPPER") ;;
+        270) side=(--right-of "$MONITOR_UPPER") ;;
+        180) side=(--above    "$MONITOR_UPPER") ;;
+        *)   side=(--below    "$MONITOR_UPPER"); transform=normal ;;
+    esac
     gdctl set \
-        --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" \
-        --logical-monitor --scale "$scale" --monitor "$MONITOR_LOWER" --below "$MONITOR_UPPER"
+        --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" --transform "$transform" \
+        --logical-monitor --scale "$scale" --monitor "$MONITOR_LOWER" "${side[@]}" --transform "$transform"
     _osd on
     echo "Pantalla inferior encendida"
     # Reaplica el mapeo de touchscreens tras cambiar la topología
@@ -48,8 +69,9 @@ function _on() {
 
 function _off() {
     if [[ "$(_lower_state)" == "disabled" ]]; then echo "Pantalla inferior ya estaba apagada"; return; fi
-    local scale; scale=$(_scale)
-    gdctl set --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER"
+    local scale transform
+    scale=$(_scale); transform=$(_upper_transform)
+    gdctl set --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" --transform "$transform"
     _osd off
     echo "Pantalla inferior apagada"
 }

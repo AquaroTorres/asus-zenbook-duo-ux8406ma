@@ -9,11 +9,12 @@ MONITOR_LOWER="eDP-2"
 [[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
 
 function _scale() { gdctl show | grep "Scale:" | head -1 | grep -oP '[\d.]+'; }
-function _count() { gdctl show | grep "Logical monitor #" | wc -l; }
 
 function _apply() {
     local transform="$1" scale dual
-    scale=$(_scale); dual=$(_count)
+    scale=$(_scale)
+    # Estado real de la pantalla inferior (DRM): contar monitores lógicos falla con un monitor externo
+    [[ "$(cat /sys/class/drm/card*-"$MONITOR_LOWER"/enabled 2>/dev/null | head -1)" == "enabled" ]] && dual=2 || dual=1
     if (( dual >= 2 )); then
         case "$transform" in
             normal)

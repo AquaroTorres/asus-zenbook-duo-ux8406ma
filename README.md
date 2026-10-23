@@ -157,7 +157,7 @@ enlaza en `/usr/lib/systemd/system-sleep/`).
 ```
 zenbook-lower-screen [on|off|toggle|status]
 ```
-Enciende o apaga eDP-2 (debajo de eDP-1, con la misma escala). `on` y `off` no hacen nada si la pantalla ya está en ese estado (no reordenan ventanas ni repiten el aviso). Al encenderla reaplica el mapeo de
+Enciende o apaga eDP-2 (debajo de eDP-1, con la misma escala). `on` y `off` no hacen nada si la pantalla ya está en ese estado (no reordenan ventanas ni repiten el aviso) y **conservan la rotación actual**: con las pantallas en vertical, apagar y encender la inferior las deja en vertical y dispuestas igual que `zenbook-screen-rotation`. Al encenderla reaplica el mapeo de
 touchscreens y muestra "Pantalla inferior: encendida|apagada" (el icono sale atenuado cuando está
 apagada). Solo cambia la pantalla: quién decide cuándo es `zenbook-keyboard-monitor`; la tecla
 dedicada usa `toggle`.
