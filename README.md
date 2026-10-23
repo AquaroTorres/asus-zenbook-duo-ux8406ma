@@ -50,23 +50,38 @@ Son servicios de usuario; `install-scripts-services-extensions.sh` los instala y
 
 ## Instalación
 
+Instalación completa, en el orden correcto (es idempotente: se puede repetir):
+
 ```bash
-./install-scripts-services-extensions.sh
+./install-all.sh
 ```
 
-Después **cierra sesión y vuelve a entrar** (Wayland) para ver las extensiones y
-para que tome efecto el grupo `input`.
+En una instalación limpia se ejecuta **dos veces**:
+1. La primera instala todo y el EDID de la pantalla inferior, y pide **reiniciar**.
+2. Tras reiniciar y volver a entrar, la segunda habilita las extensiones (GNOME no las conoce
+   hasta iniciar sesión de nuevo) y deja el inicio de sesión con tu disposición de pantallas.
+   Antes de esa segunda pasada, deja la pantalla inferior debajo de la superior y con la escala que quieras.
 
-El instalador:
+Al final lista lo que falte. Orquesta los tres instaladores, que también se pueden usar por separado:
+
+| Instalador | Qué hace |
+|---|---|
+| `install-scripts-services-extensions.sh` | Scripts, servicios, extensiones, sudoers y regla udev |
+| `install-lower-screen-edid.sh` | EDID de la pantalla inferior (initramfs y GRUB); requiere reiniciar |
+| `install-login-screen-layout.sh` | Disposición de las pantallas en el inicio de sesión (GDM); repítelo si cambias la escala |
+
+`install-all.sh` además desactiva el brillo automático de GNOME, porque pelea con F5/F6.
+
+`install-scripts-services-extensions.sh` hace lo siguiente:
 - instala dependencias con `pacman` (`python-pyusb`, `inotify-tools`, `iio-sensor-proxy`, `xorg-xinput`, `bluez-utils`);
 - copia `scripts/zenbook-*` a `/usr/local/bin`;
 - crea `/etc/zenbook-duo.conf` (si no existe);
 - crea `/etc/sudoers.d/zenbook-duo` (la luz del teclado necesita root);
 - instala la regla udev de hidraw y te agrega al grupo `input`;
 - instala los servicios de usuario y activa `zenbook-hotkeys`, `zenbook-screen-rotation`, `zenbook-microphone` y `zenbook-keyboard-monitor`;
-- instala y habilita las tres extensiones.
+- instala y habilita las cinco extensiones.
 
-No instala el EDID personalizado ni toca GRUB/initramfs: eso lo hace aparte `./install-lower-screen-edid.sh` (ver [Touchscreens](#zenbook-touchscreen)).
+No instala el EDID personalizado ni toca GRUB/initramfs: eso lo hace `./install-lower-screen-edid.sh` (ver [Touchscreens](#zenbook-touchscreen)).
 
 ## Pantallas en el inicio de sesión (GDM)
 
@@ -323,7 +338,8 @@ gnome-extension/    las cinco extensiones
 systemd/user/       servicios de usuario
 udev/               regla para leer hidraw sin root
 zenbook-duo.conf    configuración (→ /etc/zenbook-duo.conf)
-install-scripts-services-extensions.sh          instalador
+install-all.sh                    instala todo en orden (orquesta los tres siguientes)
+install-scripts-services-extensions.sh  scripts, servicios, extensiones, sudoers y udev
 install-lower-screen-edid.sh     EDID personalizado de eDP-2 (initramfs + GRUB; aparte, requiere reinicio)
 install-login-screen-layout.sh  disposición de las pantallas en el inicio de sesión de GDM (aparte)
 edid/               edp2.bin
