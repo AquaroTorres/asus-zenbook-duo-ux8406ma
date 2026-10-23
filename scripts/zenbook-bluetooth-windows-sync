@@ -1,0 +1,249 @@
+#!/bin/bash
+# Copia a Linux el emparejamiento Bluetooth del teclado que Windows tiene ahora (dual boot)
+#
+# Uso: zenbook-bluetooth-windows-sync [--dry-run] [--force] [--name TEXTO]
+#   (sin opciones)  Lee el registro de Windows, elige la entrada MÁS RECIENTE del teclado y, si
+#                   cambió, la instala en BlueZ. No hace nada si ya está sincronizado.
+#   --dry-run       Solo muestra qué haría, sin tocar nada.
+#   --force         Reinstala aunque ya esté sincronizado.
+#   --name TEXTO    Dispositivo a buscar (por defecto KB_NAME, "Zenbook Duo").
+#
+# Por qué hace falta: el teclado guarda UN solo vínculo y cambia de dirección cada vez que se
+# empareja de nuevo; al emparejarlo en Windows, Linux pierde el suyo. Windows y Linux pueden
+# compartir el vínculo si usan las mismas claves.
+#
+# Qué hace (ver AGENTS.md, "Emparejamiento Bluetooth compartido con Windows"):
+#   1. Copia el registro de Windows (SYSTEM) a una carpeta privada; no escribe en Windows.
+#   2. Entre las entradas con ese nombre elige la de LastConnected más reciente.
+#   3. Convierte las claves: LTK tal cual (sin invertir), IRK invertida, Rand y EDiv.
+#   4. Hace copia de seguridad de /var/lib/bluetooth, detiene BlueZ (mask runtime: si no, D-Bus lo
+#      reactiva al instante), instala la entrada, retira las viejas del mismo nombre y lo reinicia.
+# Un ratón Bluetooth se desconecta unos segundos al reiniciar BlueZ. Las claves nunca se imprimen.
+
+KB_NAME="Zenbook Duo"
+WINDOWS_MOUNT=""     # vacío: se detecta la partición NTFS que contiene Windows
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+DRY=""; FORCE=""; NAME="$KB_NAME"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run) DRY=1 ;;
+        --force)   FORCE=1 ;;
+        --name)    NAME="$2"; shift ;;
+        *) echo "Uso: zenbook-bluetooth-windows-sync [--dry-run] [--force] [--name TEXTO]"; exit 1 ;;
+    esac
+    shift
+done
+
+die() { echo "Error: $*" >&2; exit 1; }
+command -v reged > /dev/null || die "falta reged (sudo pacman -S chntpw)"
+
+# ── Partición de Windows ──────────────────────────────────────────────────────
+HIVE=""
+if [[ -n "$WINDOWS_MOUNT" ]]; then
+    HIVE="$WINDOWS_MOUNT/Windows/System32/config/SYSTEM"
+else
+    while read -r mnt; do
+        [[ -r "$mnt/Windows/System32/config/SYSTEM" ]] && { HIVE="$mnt/Windows/System32/config/SYSTEM"; break; }
+    done < <(findmnt -rn -t ntfs3,ntfs,fuseblk -o TARGET)
+fi
+[[ -r "$HIVE" ]] || die "no encuentro el registro de Windows. Monta la partición (p. ej. en /mnt/windows) o define WINDOWS_MOUNT en /etc/zenbook-duo.conf"
+
+WORK=$(mktemp -d); chmod 700 "$WORK"
+MASKED=""
+cleanup() {
+    # Pase lo que pase, BlueZ debe quedar encendido y sin enmascarar
+    if [[ -n "$MASKED" ]]; then
+        sudo systemctl unmask --runtime bluetooth > /dev/null 2>&1
+        sudo systemctl start bluetooth > /dev/null 2>&1
+    fi
+    rm -rf "$WORK"
+}
+trap cleanup EXIT
+
+cp "$HIVE" "$WORK/SYSTEM" || die "no pude copiar el registro de Windows"
+for key in Keys Devices; do
+    reged -x "$WORK/SYSTEM" 'HKEY_LOCAL_MACHINE\SYSTEM' "\\ControlSet001\\Services\\BTHPORT\\Parameters\\$key" "$WORK/$key.reg" > /dev/null 2>&1
+    [[ -s "$WORK/$key.reg" ]] || die "no pude leer BTHPORT\\$key del registro de Windows"
+done
+
+# ── Adaptadores de Linux y estado actual ──────────────────────────────────────
+ADAPTERS=$(sudo ls /var/lib/bluetooth 2>/dev/null | grep -E '^([0-9A-F]{2}:){5}[0-9A-F]{2}$')
+[[ -n "$ADAPTERS" ]] || die "no hay adaptadores en /var/lib/bluetooth"
+
+# ── Cálculo (Python): elige la entrada más reciente y construye el archivo info ──
+ADAPTERS="$ADAPTERS" NAME="$NAME" WORK="$WORK" python3 - << 'PYEOF' || exit 1
+import os, re, struct, subprocess, sys, datetime
+
+work, name_pat = os.environ['WORK'], os.environ['NAME'].lower()
+adapters = os.environ['ADAPTERS'].split()
+
+def read_reg(path):
+    t = open(path, encoding='latin-1').read().replace('\r', '')
+    return re.sub(r'\\\n\s*', '', t)
+
+def blocks(text):
+    return [b for b in re.split(r'\n(?=\[)', text) if b.startswith('[')]
+
+def values(block):
+    return dict(re.findall(r'^"([^"]+)"=(.*)$', block, re.M))
+
+def hexb(v):  return bytes(int(x, 16) for x in re.findall(r'[0-9a-fA-F]{2}', v.split(':', 1)[1]))
+def dword(v): return int(v.split(':')[1], 16)
+
+def sudo_cat(path):
+    r = subprocess.run(['sudo', 'cat', path], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+
+def sudo_ls(path):
+    r = subprocess.run(['sudo', 'ls', path], capture_output=True, text=True)
+    return r.stdout.split() if r.returncode == 0 else []
+
+# Dispositivos de Windows con ese nombre, con su último uso
+cands = []
+for b in blocks(read_reg(f'{work}/Devices.reg')):
+    m = re.match(r'\[.*\\Devices\\([0-9a-f]{12})\]', b.split('\n')[0])
+    if not m: continue
+    v = values(b)
+    name = hexb(v['Name']).split(b'\x00')[0].decode('utf8', 'replace') if v.get('Name', '').startswith('hex') else ''
+    if name_pat not in name.lower(): continue
+    last = 0
+    if v.get('LastConnected', '').startswith('hex'):
+        raw = hexb(v['LastConnected'])
+        if len(raw) == 8: last = struct.unpack('<Q', raw)[0]
+    cands.append((last, m.group(1), name))
+if not cands:
+    sys.exit(f'Error: Windows no tiene ningún dispositivo Bluetooth con "{name_pat}" en el nombre')
+cands.sort(reverse=True)
+def when(ft):
+    return (datetime.datetime(1601, 1, 1) + datetime.timedelta(microseconds=ft // 10)).strftime('%Y-%m-%d %H:%M') if ft else 'sin fecha'
+print('Entradas de Windows con ese nombre (la primera es la elegida):')
+for i, (ft, mac, nm) in enumerate(cands):
+    print(f"  {'→' if i == 0 else ' '} {':'.join(mac[j:j+2] for j in range(0, 12, 2)).upper()}  {nm}  último uso: {when(ft)}")
+last, dev, name = cands[0]
+DEV = ':'.join(dev[j:j+2] for j in range(0, 12, 2)).upper()
+
+# Claves de esa entrada, para el adaptador que exista en Linux
+keys = read_reg(f'{work}/Keys.reg')
+entry = None
+for b in blocks(keys):
+    m = re.match(r'\[.*\\Keys\\([0-9a-f]{12})\\' + dev + r'\]', b.split('\n')[0])
+    if m and ':'.join(m.group(1)[j:j+2] for j in range(0, 12, 2)).upper() in adapters:
+        entry = (':'.join(m.group(1)[j:j+2] for j in range(0, 12, 2)).upper(), values(b)); break
+if not entry:
+    sys.exit(f'Error: Windows no tiene claves de {DEV} para ningún adaptador de este equipo')
+ADAPTER, w = entry
+if hexb(w['Address'])[:6][::-1].hex() != dev:
+    sys.exit('Error: la dirección dentro de la clave de Windows no coincide con el dispositivo; no se continúa')
+ltk = hexb(w['LTK']).hex().upper()            # LTK tal cual, SIN invertir (probado: invertida falla)
+irk = hexb(w['IRK'])[::-1].hex().upper()      # IRK invertida (el teclado funciona; orden nativo sin verificar)
+rand = int.from_bytes(hexb(w['ERand']), 'little'); ediv = dword(w['EDIV']); enc = dword(w['KeyLength'])
+
+# Plantilla: el info actual de ese dispositivo, o el de otro con el mismo nombre, o una por defecto
+base = f'/var/lib/bluetooth/{ADAPTER}'
+existing = sudo_cat(f'{base}/{DEV}/info')
+others = []
+for d in sudo_ls(base):
+    if re.match(r'^([0-9A-F]{2}:){5}[0-9A-F]{2}$', d) and d != DEV:
+        t = sudo_cat(f'{base}/{d}/info')
+        if t and re.search(r'^Name=.*' + re.escape(name_pat), t, re.M | re.I): others.append((d, t))
+tpl = existing or (others[0][1] if others else """[General]
+Name=ASUS Zenbook Duo Keyboard
+Appearance=0x03c1
+AddressType=static
+SupportedTechnologies=LE;
+Trusted=true
+Blocked=false
+CablePairing=false
+WakeAllowed=true
+Services=00001800-0000-1000-8000-00805f9b34fb;00001801-0000-1000-8000-00805f9b34fb;0000180a-0000-1000-8000-00805f9b34fb;0000180f-0000-1000-8000-00805f9b34fb;00001812-0000-1000-8000-00805f9b34fb;
+
+[ConnectionParameters]
+MinInterval=6
+MaxInterval=6
+Latency=2
+Timeout=43
+
+[IdentityResolvingKey]
+Key=00
+
+[PeripheralLongTermKey]
+Key=00
+Authenticated=3
+EncSize=16
+EDiv=0
+Rand=0
+
+[SlaveLongTermKey]
+Key=00
+Authenticated=3
+EncSize=16
+EDiv=0
+Rand=0
+
+[DeviceID]
+Source=2
+Vendor=2821
+Product=6957
+Version=296
+""")
+
+def setsec(text, sec, **kv):
+    m = re.search(rf'(\[{sec}\]\n)(.*?)(?=\n\[|\Z)', text, re.S)
+    if not m: sys.exit(f'Error: la plantilla no tiene la sección [{sec}]')
+    body = m.group(2)
+    for k, val in kv.items():
+        body, n = re.subn(rf'^{k}=.*$', f'{k}={val}', body, flags=re.M)
+        if n != 1: sys.exit(f'Error: la plantilla no tiene {k} en [{sec}]')
+    return text[:m.start(2)] + body + text[m.end(2):]
+new = setsec(tpl, 'IdentityResolvingKey', Key=irk)
+for sec in ('PeripheralLongTermKey', 'SlaveLongTermKey'):
+    new = setsec(new, sec, Key=ltk, EncSize=enc, EDiv=ediv, Rand=rand)
+
+def key_of(text, sec):
+    m = re.search(rf'\[{sec}\]\nKey=([0-9A-F]+)', text or '')
+    return m.group(1) if m else None
+synced = bool(existing) and key_of(existing, 'PeripheralLongTermKey') == ltk and key_of(existing, 'IdentityResolvingKey') == irk
+
+open(f'{work}/new.info', 'w').write(new); os.chmod(f'{work}/new.info', 0o600)
+stale = [d for d, _ in others]
+open(f'{work}/plan.env', 'w').write(
+    f"DEV={DEV}\nADAPTER={ADAPTER}\nSTATUS={'synced' if synced else ('update' if existing else 'new')}\nSTALE=\"{' '.join(stale)}\"\n")
+print(f"\nDispositivo elegido: {DEV} (adaptador {ADAPTER})")
+print("Estado en Linux: " + ("ya sincronizado" if synced else ("existe con otras claves: se actualizará" if existing else "no existe: se instalará")))
+if stale: print("Entradas viejas del mismo nombre que se retirarán: " + ' '.join(stale))
+PYEOF
+
+source "$WORK/plan.env"
+
+if [[ "$STATUS" == "synced" && -z "$FORCE" ]]; then
+    echo "Nada que hacer (usa --force para reinstalar)."; exit 0
+fi
+[[ -n "$DRY" ]] && { echo; echo "(--dry-run: no se cambió nada)"; exit 0; }
+
+# ── Aplicar ───────────────────────────────────────────────────────────────────
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/zenbook"; mkdir -p "$STATE_DIR"; chmod 700 "$STATE_DIR"
+BACKUP="$STATE_DIR/bluetooth-backup-$(date +%Y%m%d-%H%M%S).tgz"
+sudo tar czf "$BACKUP" -C /var/lib bluetooth && sudo chown "$USER" "$BACKUP" && chmod 600 "$BACKUP" || die "no pude hacer la copia de seguridad"
+ls -1t "$STATE_DIR"/bluetooth-backup-*.tgz | tail -n +4 | xargs -r rm -f
+echo "Copia de seguridad: $BACKUP"
+
+echo "Deteniendo BlueZ (un ratón Bluetooth se desconectará unos segundos)..."
+sudo systemctl mask --runtime --now bluetooth > /dev/null 2>&1; MASKED=1
+sleep 1.5
+pgrep -x bluetoothd > /dev/null && die "bluetoothd sigue activo; no se modificó nada"
+
+D="/var/lib/bluetooth/$ADAPTER"
+sudo mkdir -p "$D/$DEV" && sudo install -m 600 -o root -g root "$WORK/new.info" "$D/$DEV/info" && sudo chmod 700 "$D/$DEV"
+for old in $STALE; do sudo rm -rf "${D:?}/$old"; done
+
+sudo systemctl unmask --runtime bluetooth && sudo systemctl start bluetooth; MASKED=""
+sleep 3
+systemctl is-active --quiet bluetooth || die "BlueZ no arrancó (restaura la copia: $BACKUP)"
+
+if bluetoothctl info "$DEV" 2>/dev/null | grep -q "Bonded: yes"; then
+    echo "Listo: $DEV emparejado en Linux con el vínculo de Windows."
+    echo "Pulsa una tecla del teclado (en modo Bluetooth, sin USB): debería conectar en unos segundos."
+else
+    die "BlueZ no ve el dispositivo como vinculado (restaura la copia: $BACKUP)"
+fi

@@ -30,6 +30,7 @@ Detalles técnicos y decisiones de diseño: [AGENTS.md](AGENTS.md).
 | `zenbook-touchscreen` | Asigna cada touchscreen a su pantalla |
 | `zenbook-bluetooth` | Enciende, apaga o alterna el Bluetooth |
 | `zenbook-bluetooth-keyboard` | Conecta o empareja el teclado Bluetooth |
+| `zenbook-bluetooth-windows-sync` | Copia a Linux el emparejamiento del teclado que Windows tiene ahora (dual boot): elige la entrada más reciente y la instala en BlueZ |
 | `zenbook-wifi` | Enciende, apaga o alterna el WiFi |
 | `zenbook-keymap` | Herramienta de diagnóstico: captura qué envía cada tecla de función (USB y Bluetooth) |
 
@@ -243,6 +244,22 @@ zenbook-bluetooth-keyboard
 ```
 Conecta el teclado BT. Si no está emparejado lo busca durante
 `BT_SCAN_SECONDS` y abre una terminal para el emparejamiento con PIN.
+
+### `zenbook-bluetooth-windows-sync`: emparejamiento compartido con Windows
+```
+zenbook-bluetooth-windows-sync [--dry-run] [--force] [--name TEXTO]
+```
+El teclado guarda **un solo** emparejamiento y cambia de dirección cada vez que se empareja de nuevo, así
+que al emparejarlo en Windows, Linux lo pierde. Este script lee el registro de Windows (una **copia**: no
+escribe en esa partición), elige la entrada con ese nombre de **uso más reciente** (puede haber varias),
+convierte las claves y las instala en BlueZ. Antes hace una copia de seguridad (en
+`~/.local/state/zenbook/`, se conservan las 3 últimas), y al terminar BlueZ queda encendido pase lo que pase.
+
+- `--dry-run` muestra qué haría. Si ya está sincronizado no hace nada (`--force` reinstala).
+- Reiniciar BlueZ desconecta unos segundos un ratón Bluetooth.
+- Después, pulsa una tecla del teclado en modo Bluetooth (sin USB) para que conecte.
+- Necesita `chntpw` (lo instala el instalador) y la partición de Windows montada (se detecta sola; si no,
+  `WINDOWS_MOUNT` en `/etc/zenbook-duo.conf`).
 
 ### `zenbook-wifi`: WiFi
 ```

@@ -10,7 +10,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "==> Dependencias"
 sudo pacman -S --needed --noconfirm \
-    python-pyusb inotify-tools iio-sensor-proxy xorg-xinput bluez-utils libpulse
+    python-pyusb inotify-tools iio-sensor-proxy xorg-xinput bluez-utils libpulse chntpw
 
 echo "==> Scripts en /usr/local/bin"
 for s in "$DIR"/scripts/zenbook-*; do
