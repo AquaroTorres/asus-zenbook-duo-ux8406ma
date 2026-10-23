@@ -8,7 +8,7 @@
 # iniciar sesión pasan a su sitio.
 #
 # Toma de tu ~/.config/monitors.xml la configuración de exactamente eDP-1 + eDP-2 (con el serial
-# del EDID personalizado de eDP-2, ver install-edid.sh) y la copia al greeter. Es idempotente.
+# del EDID personalizado de eDP-2, ver install-lower-screen-edid.sh) y la copia al greeter. Es idempotente.
 # Vuelve a ejecutarlo si cambias la escala de las pantallas.
 set -e
 

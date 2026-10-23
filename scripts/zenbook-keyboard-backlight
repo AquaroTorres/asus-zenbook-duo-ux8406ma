@@ -6,7 +6,7 @@
 #   cycle   0→1→2→3→0
 #   status  Conexión y nivel actual
 #
-# Instalación: ./install.sh
+# Instalación: ./install-scripts-services-extensions.sh
 
 PYTHON3=$(which python3)
 KB_STATE_FILE="/tmp/kb-backlight-level"

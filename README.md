@@ -39,7 +39,7 @@ Detalles técnicos y decisiones de diseño: [AGENTS.md](AGENTS.md).
 
 ### Servicios (`systemd/user/`)
 
-Son servicios de usuario; `install.sh` los instala y los deja activos.
+Son servicios de usuario; `install-scripts-services-extensions.sh` los instala y los deja activos.
 
 | Servicio | Ejecuta | Qué hace |
 |---|---|---|
@@ -51,7 +51,7 @@ Son servicios de usuario; `install.sh` los instala y los deja activos.
 ## Instalación
 
 ```bash
-./install.sh
+./install-scripts-services-extensions.sh
 ```
 
 Después **cierra sesión y vuelve a entrar** (Wayland) para ver las extensiones y
@@ -66,7 +66,7 @@ El instalador:
 - instala los servicios de usuario y activa `zenbook-hotkeys`, `zenbook-screen-rotation`, `zenbook-microphone` y `zenbook-keyboard-monitor`;
 - instala y habilita las tres extensiones.
 
-No instala el EDID personalizado ni toca GRUB/initramfs: eso lo hace aparte `./install-edid.sh` (ver [Touchscreens](#zenbook-touchscreen)).
+No instala el EDID personalizado ni toca GRUB/initramfs: eso lo hace aparte `./install-lower-screen-edid.sh` (ver [Touchscreens](#zenbook-touchscreen)).
 
 ## Pantallas en el inicio de sesión (GDM)
 
@@ -76,11 +76,11 @@ principal. GNOME lo guarda en `~/.config/monitors.xml`, pero la pantalla de inic
 iniciar sesión pasan a su sitio. Para corregirlo:
 
 ```bash
-./install-gdm-monitors.sh
+./install-login-screen-layout.sh
 ```
 
 Toma de tu `monitors.xml` la configuración de exactamente `eDP-1` y `eDP-2` (con el serial del EDID
-personalizado de `install-edid.sh`), comprueba que `eDP-1` es la principal y `eDP-2` está justo
+personalizado de `install-lower-screen-edid.sh`), comprueba que `eDP-1` es la principal y `eDP-2` está justo
 debajo, y la copia a `/var/lib/gdm/seat0/config/monitors.xml`. Es idempotente; vuelve a ejecutarlo si
 cambias la escala. Se aplica la próxima vez que aparezca el greeter (cierra sesión o reinicia).
 
@@ -175,7 +175,7 @@ Asigna cada touchscreen ELAN a su pantalla con `gsettings` (apps Wayland) y
 `xinput` (XWayland). Para que GNOME distinga los paneles hace falta el EDID
 personalizado `edp2.bin` (serial `"eDP-2"`), cargado con
 `drm.edid_firmware=eDP-2:/lib/firmware/edid/edp2.bin` e incluido en el
-initramfs. `./install-edid.sh` lo instala (copia `edid/edp2.bin`, lo incluye en el
+initramfs. `./install-lower-screen-edid.sh` lo instala (copia `edid/edp2.bin`, lo incluye en el
 initramfs y agrega el parámetro a GRUB); es idempotente y requiere reinicio.
 
 ### `zenbook-hotkeys`: teclas especiales
@@ -323,9 +323,9 @@ gnome-extension/    las cinco extensiones
 systemd/user/       servicios de usuario
 udev/               regla para leer hidraw sin root
 zenbook-duo.conf    configuración (→ /etc/zenbook-duo.conf)
-install.sh          instalador
-install-edid.sh     EDID personalizado de eDP-2 (initramfs + GRUB; aparte, requiere reinicio)
-install-gdm-monitors.sh  disposición de las pantallas en el inicio de sesión de GDM (aparte)
+install-scripts-services-extensions.sh          instalador
+install-lower-screen-edid.sh     EDID personalizado de eDP-2 (initramfs + GRUB; aparte, requiere reinicio)
+install-login-screen-layout.sh  disposición de las pantallas en el inicio de sesión de GDM (aparte)
 edid/               edp2.bin
 tools/              capture-input.py (diagnóstico: captura todos los eventos de entrada)
 keymap/             mapas capturados de las teclas F (USB y BT)

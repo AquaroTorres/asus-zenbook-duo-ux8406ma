@@ -18,7 +18,7 @@
 # El estado se publica en FNLOCK_STATE_FILE (0 = off, 1 = on) para la extensión.
 #
 # Envío igual que zenbook-keyboard-backlight: por USB ctrl_transfer a la interfaz 4, por
-# Bluetooth hidraw. Se auto-eleva con sudo -n (ver sudoers en install.sh).
+# Bluetooth hidraw. Se auto-eleva con sudo -n (ver sudoers en install-scripts-services-extensions.sh).
 # on, off y toggle muestran el indicador inferior de GNOME (osd-zenbook), como zenbook-microphone.
 
 PYTHON3=$(which python3)
