@@ -1,0 +1,220 @@
+{
+  "bus": "bt",
+  "fnlock": "off",
+  "captured": "2026-10-23T00:17:44",
+  "devices": [
+    {
+      "kind": "evdev",
+      "path": "/dev/input/event24",
+      "name": "Asus WMI hotkeys"
+    },
+    {
+      "kind": "evdev",
+      "path": "/dev/input/event4",
+      "name": "ASUS Zenbook Duo Keyboard"
+    },
+    {
+      "kind": "evdev",
+      "path": "/dev/input/event5",
+      "name": "ASUS Zenbook Duo Keyboard"
+    },
+    {
+      "kind": "evdev",
+      "path": "/dev/input/event6",
+      "name": "ASUS Zenbook Duo Keyboard"
+    },
+    {
+      "kind": "hidraw",
+      "path": "/dev/hidraw1",
+      "name": "ASUS Zenbook Duo Keyboard"
+    }
+  ],
+  "keys": {
+    "F1": {
+      "sola": [
+        "evdev[event4] EV_MSC 4=0xc00e2",
+        "evdev[event4] EV_KEY KEY_MUTE(113)=1",
+        "hidraw[hidraw1] 03 e2 00 00",
+        "evdev[event4] EV_KEY KEY_MUTE(113)=0",
+        "hidraw[hidraw1] 03 00 00 00"
+      ],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x7003a",
+        "evdev[event4] EV_KEY KEY_F1(59)=1",
+        "hidraw[hidraw1] 02 00 00 3a 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F1(59)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F2": {
+      "sola": [
+        "evdev[event4] EV_MSC 4=0xc00ea",
+        "evdev[event4] EV_KEY KEY_VOLUMEDOWN(114)=1",
+        "hidraw[hidraw1] 03 ea 00 00",
+        "evdev[event4] EV_KEY KEY_VOLUMEDOWN(114)=0",
+        "hidraw[hidraw1] 03 00 00 00"
+      ],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x7003b",
+        "evdev[event4] EV_KEY KEY_F2(60)=1",
+        "hidraw[hidraw1] 02 00 00 3b 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F2(60)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F3": {
+      "sola": [
+        "evdev[event4] EV_MSC 4=0xc00e9",
+        "evdev[event4] EV_KEY KEY_VOLUMEUP(115)=1",
+        "hidraw[hidraw1] 03 e9 00 00",
+        "evdev[event4] EV_KEY KEY_VOLUMEUP(115)=0",
+        "hidraw[hidraw1] 03 00 00 00"
+      ],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x7003c",
+        "evdev[event4] EV_KEY KEY_F3(61)=1",
+        "hidraw[hidraw1] 02 00 00 3c 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F3(61)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F4": {
+      "sola": [
+        "evdev[event6] EV_ABS 40=199",
+        "hidraw[hidraw1] 5a c7 00 00 00 00",
+        "evdev[event6] EV_ABS 40=0",
+        "hidraw[hidraw1] 5a 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x7003d",
+        "evdev[event4] EV_KEY KEY_F4(62)=1",
+        "hidraw[hidraw1] 02 00 00 3d 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F4(62)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F5": {
+      "sola": [
+        "evdev[event6] EV_ABS 40=16",
+        "hidraw[hidraw1] 5a 10 00 00 00 00",
+        "evdev[event6] EV_ABS 40=0",
+        "hidraw[hidraw1] 5a 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x7003e",
+        "evdev[event4] EV_KEY KEY_F5(63)=1",
+        "hidraw[hidraw1] 02 00 00 3e 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F5(63)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F6": {
+      "sola": [
+        "evdev[event6] EV_ABS 40=32",
+        "hidraw[hidraw1] 5a 20 00 00 00 00",
+        "evdev[event6] EV_ABS 40=0",
+        "hidraw[hidraw1] 5a 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x7003f",
+        "evdev[event4] EV_KEY KEY_F6(64)=1",
+        "hidraw[hidraw1] 02 00 00 3f 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F6(64)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F7": {
+      "sola": [
+        "evdev[event4] EV_MSC 4=0x700e3",
+        "evdev[event4] EV_KEY KEY_LEFTMETA(125)=1",
+        "hidraw[hidraw1] 02 08 00 00 00 00 00 00 00",
+        "evdev[event4] EV_MSC 4=0x70013",
+        "evdev[event4] EV_KEY KEY_P(25)=1",
+        "hidraw[hidraw1] 02 08 00 13 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_P(25)=0",
+        "evdev[event4] EV_KEY KEY_LEFTMETA(125)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x70040",
+        "evdev[event4] EV_KEY KEY_F7(65)=1",
+        "hidraw[hidraw1] 02 00 00 40 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F7(65)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F8": {
+      "sola": [
+        "evdev[event6] EV_ABS 40=156",
+        "hidraw[hidraw1] 5a 9c 00 00 00 00",
+        "evdev[event6] EV_ABS 40=0",
+        "hidraw[hidraw1] 5a 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x70041",
+        "evdev[event4] EV_KEY KEY_F8(66)=1",
+        "hidraw[hidraw1] 02 00 00 41 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F8(66)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F9": {
+      "sola": [
+        "evdev[event6] EV_ABS 40=124",
+        "hidraw[hidraw1] 5a 7c 00 00 00 00",
+        "evdev[event6] EV_ABS 40=0",
+        "hidraw[hidraw1] 5a 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x70042",
+        "evdev[event4] EV_KEY KEY_F9(67)=1",
+        "hidraw[hidraw1] 02 00 00 42 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F9(67)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F10": {
+      "sola": [],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x70043",
+        "evdev[event4] EV_KEY KEY_F10(68)=1",
+        "hidraw[hidraw1] 02 00 00 43 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F10(68)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F11": {
+      "sola": [
+        "evdev[event6] EV_ABS 40=126",
+        "hidraw[hidraw1] 5a 7e 00 00 00 00",
+        "evdev[event6] EV_ABS 40=0",
+        "hidraw[hidraw1] 5a 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x70044",
+        "evdev[event4] EV_KEY KEY_F11(87)=1",
+        "hidraw[hidraw1] 02 00 00 44 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F11(87)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F12": {
+      "sola": [
+        "evdev[event6] EV_ABS 40=134",
+        "hidraw[hidraw1] 5a 86 00 00 00 00",
+        "evdev[event6] EV_ABS 40=0",
+        "hidraw[hidraw1] 5a 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event4] EV_MSC 4=0x70045",
+        "evdev[event4] EV_KEY KEY_F12(88)=1",
+        "hidraw[hidraw1] 02 00 00 45 00 00 00 00 00",
+        "evdev[event4] EV_KEY KEY_F12(88)=0",
+        "hidraw[hidraw1] 02 00 00 00 00 00 00 00 00"
+      ]
+    }
+  },
+  "notes": {
+    "F10.sola": "Sin evento por BT: capture-input.py --all (2026-10-23 00:19) no registró nada en ningún dispositivo al presionar F10 sola. Por USB sí emite 5a 3d 64 01. La captura anterior de esta celda era Fn+F10."
+  }
+}

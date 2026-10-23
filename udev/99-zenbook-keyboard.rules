@@ -1,0 +1,3 @@
+# Allow users in the input group to read ASUS Zenbook Duo Keyboard hidraw devices
+# Required for zenbook-hotkeys to detect the display toggle key without sudo
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{product}=="*Zenbook Duo Keyboard*", MODE="0660", GROUP="input"

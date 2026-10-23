@@ -1,0 +1,126 @@
+#!/bin/bash
+# Vigila la conexión del teclado del Zenbook Duo (servicio zenbook-keyboard-monitor)
+#
+# Uso: zenbook-keyboard-monitor [watch|status]
+#   watch   Reacciona a conectar o desconectar el teclado:
+#             USB → pantalla inferior OFF | Bluetooth → ON | sin teclado → ON
+#           y, cada vez que el teclado aparece, reaplica lo que no recuerda:
+#             bloqueo Fn en off (sin él F4/F5/F6/F8/F9 no llegan como acciones) y la luz de F9.
+#           No toca la luz del teclado: se queda como estaba.
+#   status  Imprime usb, bt o none (USB tiene prioridad sobre BT)
+#
+# La pantalla la cambia zenbook-lower-screen; este script solo decide cuándo.
+
+KB_NAME="Zenbook Duo"
+KB_EVENT_DELAY=0.3   # s de espera tras un evento udev antes de evaluar el teclado
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+BUS_FILE="/tmp/zenbook-kb-bus"           # último bus aplicado
+ADDED_FILE="/tmp/zenbook-kb-added"       # hubo un "add" del teclado desde la última evaluación
+CONNECT_FILE="/tmp/zenbook-kb-connect"   # cuándo se reaplicaron los ajustes por última vez
+
+function _kb_bus_type() {
+    local result="none" uevent driver hid_id bus
+    for uevent in /sys/class/hidraw/*/device/uevent; do
+        grep -qi "$KB_NAME" "$uevent" 2>/dev/null || continue
+        driver=$(grep 'DRIVER=' "$uevent" | sed 's/DRIVER=//')
+        [[ "$driver" == "hid-multitouch" || "$driver" == "hid-sensor-hub" ]] && continue
+        hid_id=$(grep 'HID_ID=' "$uevent" | sed 's/HID_ID=//')
+        bus="${hid_id%%:*}"
+        case "$bus" in
+            0003) echo "usb"; return ;;
+            0005) result="bt" ;;
+        esac
+    done
+    echo "$result"
+}
+
+# ¿Existe ya el nodo hidraw por el que se le envían ajustes? (USB: interfaz 4; BT: cualquiera)
+function _kb_ready() {
+    local uevent driver hid_id bus
+    for uevent in /sys/class/hidraw/*/device/uevent; do
+        grep -qi "$KB_NAME" "$uevent" 2>/dev/null || continue
+        driver=$(grep 'DRIVER=' "$uevent" | sed 's/DRIVER=//')
+        [[ "$driver" == "hid-multitouch" || "$driver" == "hid-sensor-hub" ]] && continue
+        hid_id=$(grep 'HID_ID=' "$uevent" | sed 's/HID_ID=//')
+        bus="${hid_id%%:*}"
+        [[ "$bus" == "0005" ]] && return 0
+        [[ "$bus" == "0003" ]] && grep -q 'HID_PHYS=.*input4$' "$uevent" && return 0
+    done
+    return 1
+}
+
+# Ajustes que el teclado olvida al reconectarse. Se envían por hidraw: si el nodo aún no existe
+# los scripts caerían a pyusb, que desacopla la interfaz 4 y la recrea (bucle de eventos), así que
+# primero se espera a que esté. Máximo una vez cada 5 s por si algún evento propio lo reactivara.
+function _connect_tasks() {
+    local now last i
+    now=$(date +%s); last=$(cat "$CONNECT_FILE" 2>/dev/null || echo 0)
+    (( now - last < 5 )) && return
+    for i in $(seq 1 15); do _kb_ready && break; sleep 0.2; done
+    _kb_ready || { echo "$(date) - Teclado sin nodo hidraw: ajustes omitidos"; return; }
+    date +%s > "$CONNECT_FILE"
+    echo "$(date) - Teclado presente → bloqueo Fn off, luz de F9"
+    zenbook-fn-lock off -q > /dev/null 2>&1
+    zenbook-microphone sync --force > /dev/null 2>&1
+}
+
+# $1 = usb|bt|none. Solo cambia la pantalla: la luz del teclado no se toca.
+function _apply_state() {
+    case "$1" in
+        usb)
+            echo "$(date) - Teclado USB → pantalla OFF"
+            zenbook-lower-screen off
+            ;;
+        bt)
+            echo "$(date) - Teclado BT → pantalla ON"
+            zenbook-lower-screen on
+            ;;
+        none)
+            echo "$(date) - Teclado desconectado → pantalla ON"
+            zenbook-lower-screen on
+            ;;
+    esac
+    [[ "$1" != "none" ]] && _connect_tasks
+}
+
+function _watch() {
+    local bus debounce_pid=""
+
+    bus=$(_kb_bus_type)
+    echo "$bus" > "$BUS_FILE"
+    rm -f "$ADDED_FILE"
+    echo "$(date) - Vigilando | teclado: $bus"
+    _apply_state "$bus"
+
+    while read -r line; do
+        [[ "$line" =~ ^UDEV ]] || continue
+        [[ "$line" == *" add "* ]] && touch "$ADDED_FILE"
+        kill "$debounce_pid" 2>/dev/null
+        (
+            sleep "$KB_EVENT_DELAY"
+            local new_bus prev_bus
+            new_bus=$(_kb_bus_type)
+            prev_bus=$(cat "$BUS_FILE" 2>/dev/null)
+            if [[ "$new_bus" != "$prev_bus" ]]; then
+                echo "$new_bus" > "$BUS_FILE"
+                rm -f "$ADDED_FILE"
+                _apply_state "$new_bus"
+            elif [[ -e "$ADDED_FILE" ]]; then
+                # El teclado reapareció sin cambiar de bus (p. ej. al reanudar de la suspensión)
+                rm -f "$ADDED_FILE"
+                [[ "$new_bus" != "none" ]] && _connect_tasks
+            fi
+        ) &
+        debounce_pid=$!
+    done < <(udevadm monitor --udev --subsystem-match=hid 2>/dev/null)
+}
+
+case "${1:-watch}" in
+    watch)  _watch ;;
+    status) _kb_bus_type ;;
+    *)
+        echo "Uso: zenbook-keyboard-monitor [watch|status]"
+        exit 1
+        ;;
+esac

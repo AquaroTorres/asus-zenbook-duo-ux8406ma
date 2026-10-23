@@ -1,0 +1,60 @@
+#!/bin/bash
+# Conecta (o empareja la primera vez) el teclado Bluetooth del Zenbook Duo
+#
+# Uso: zenbook-bluetooth-keyboard
+
+BT_SCAN_SECONDS=15
+BT_KB_PATTERN="zenbook duo keyboard\|ASUS Keyboard"
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+if ! command -v bluetoothctl > /dev/null 2>&1; then
+    notify-send -a "Bluetooth" -i "bluetooth-error" \
+        "bluetoothctl no encontrado. Ejecuta: sudo pacman -S bluez-utils"
+    exit 1
+fi
+
+bluetoothctl power on > /dev/null
+mac=$(bluetoothctl devices | grep -i "$BT_KB_PATTERN" | awk '{print $2}')
+
+if [[ -z "$mac" ]]; then
+    notify-send -a "Teclado Bluetooth" -i "bluetooth" "Buscando teclado..." -t 3000
+    mac=$(bluetoothctl --timeout "$BT_SCAN_SECONDS" scan on 2>/dev/null | \
+        grep -i "$BT_KB_PATTERN" | \
+        grep -oP '([0-9A-F]{2}:){5}[0-9A-F]{2}' | head -1)
+fi
+
+if [[ -z "$mac" ]]; then
+    notify-send -a "Teclado Bluetooth" -i "bluetooth-error" \
+        "Teclado no encontrado. Ponlo en modo emparejamiento e inténtalo de nuevo." -t 5000
+    exit 1
+fi
+
+if ! bluetoothctl devices Paired | grep -q "$mac"; then
+    notify-send -a "Teclado Bluetooth" -i "bluetooth" \
+        "Primer emparejamiento: se abrirá una terminal.\nEscribe el PIN en el teclado." -t 6000
+    gnome-terminal --title="Emparejamiento de teclado Bluetooth" -- bash -c "
+        echo '=== Emparejamiento de teclado Bluetooth ==='
+        echo 'Aparecerá un PIN. Escríbelo en el teclado y presiona Enter.'
+        echo ''
+        bluetoothctl <<EOF
+agent KeyboardOnly
+default-agent
+pair ${mac}
+trust ${mac}
+connect ${mac}
+EOF
+        read -p 'Presiona Enter para cerrar...'
+    "
+    exit 0
+fi
+
+notify-send -a "Teclado Bluetooth" -i "bluetooth" "Conectando teclado..." -t 2000
+bluetoothctl connect "$mac"
+sleep 2
+if bluetoothctl info "$mac" | grep -q "Connected: yes"; then
+    notify-send -a "Teclado Bluetooth" -i "input-keyboard" "Teclado conectado" -t 3000
+    echo "Conectado: $mac"
+else
+    notify-send -a "Teclado Bluetooth" -i "bluetooth-error" "Falló la conexión." -t 5000
+    exit 1
+fi

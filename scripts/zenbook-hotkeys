@@ -1,0 +1,120 @@
+#!/bin/bash
+# Teclas especiales del teclado del Zenbook Duo que no son KEY_* estándar
+# (con el bloqueo Fn en "off" las teclas F también llegan así):
+#   pantalla inferior → zenbook-lower-screen toggle      F4 → zenbook-keyboard-backlight cycle
+#   Fn+Esc              → zenbook-fn-lock toggle       F5/F6 → zenbook-brightness down/up
+#   F9                  → zenbook-microphone toggle          F8 → zenbook-swap-screens (intercambiar pantallas)
+#
+# Uso: zenbook-hotkeys [watch|find]
+#
+# Bluetooth: EV_ABS code=40 value=<código> en un nodo evdev "ASUS Zenbook Duo Keyboard".
+# USB: reporte HID 5a <código> (presionar) / 5a 00 (soltar) en el hidraw de la interfaz 4.
+# Códigos: 0x6a pantalla, 0x4e Fn+Esc, 0xc7 F4, 0x10 F5, 0x20 F6, 0x7c F9, 0x9c F8 (ver AGENTS.md).
+# El número de los nodos cambia tras cada reconexión, así que se buscan por
+# nombre y capacidades.
+
+PYTHON3=$(which python3)
+KB_NAME="Zenbook Duo"
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+function _find_devices() {
+    local d name absbits u
+    for d in /sys/class/input/event*; do
+        name=$(cat "$d/device/name" 2>/dev/null)
+        [[ "$name" == *"$KB_NAME"*"Keyboard"* ]] || continue
+        absbits=$(cat "$d/device/capabilities/abs" 2>/dev/null)
+        [[ -z "$absbits" ]] && continue
+        if (( (0x$absbits >> 40) & 1 )); then
+            echo "/dev/input/$(basename "$d")"
+        fi
+    done
+    for u in /sys/class/hidraw/hidraw*/device/uevent; do
+        grep -qi "$KB_NAME" "$u" 2>/dev/null || continue
+        grep -q 'HID_PHYS=.*input4$' "$u" 2>/dev/null || continue
+        echo "/dev/$(basename "$(dirname "$(dirname "$u")")")"
+    done
+}
+
+case "${1:-watch}" in
+    watch)
+        while true; do
+            devs=$(_find_devices)
+            if [[ -z "$devs" ]]; then
+                sleep 3
+                continue
+            fi
+            echo "$(date) - Escuchando teclas especiales en: $(echo $devs)"
+            # Los ajustes que el teclado olvida al reconectarse (bloqueo Fn, luz de F9) los reaplica
+            # zenbook-keyboard-monitor; aquí solo se escuchan teclas.
+            # shellcheck disable=SC2086
+            "$PYTHON3" - $devs << 'PYEOF'
+import sys, struct, subprocess, time, os, select
+
+fmt = 'llHHi'
+size = struct.calcsize(fmt)
+
+# Código de la tecla → (comando, antirrebote en segundos).
+# Por BT llega como EV_ABS code=40 value=<código>; por USB como reporte hidraw
+# 5a <código>. Códigos verificados con zenbook-keymap, salvo los marcados.
+KEYS = {
+    0x6a: (["zenbook-lower-screen", "toggle"], 0.5),         # tecla de pantalla inferior
+    0x4e: (["zenbook-fn-lock", "toggle"], 0.5),          # Fn+Esc (verificado solo por USB)
+    0xc7: (["zenbook-keyboard-backlight", "cycle"], 0.5),               # F4: luz del teclado
+    0x10: (["zenbook-brightness", "down"], 0.12),       # F5: bajar brillo
+    0x20: (["zenbook-brightness", "up"], 0.12),         # F6: subir brillo
+    0x7c: (["zenbook-microphone", "toggle"], 0.3),             # F9: silenciar/activar micrófono
+    0x9c: (["zenbook-swap-screens"], 0.8),                      # F8: intercambiar ventanas entre pantallas
+}
+last = {}
+kinds = {}
+for p in sys.argv[1:]:
+    try:
+        kinds[os.open(p, os.O_RDONLY)] = 'hidraw' if 'hidraw' in p else 'evdev'
+    except OSError:
+        pass
+if not kinds:
+    sys.exit(0)
+try:
+    while True:
+        # Un lector por nodo: la tecla puede salir por cualquiera. Si un nodo
+        # desaparece (suspensión/reconexión) os.read falla, se sale y el bucle
+        # bash vuelve a buscar los nodos.
+        ready, _, _ = select.select(list(kinds), [], [])
+        for fd in ready:
+            code = None
+            if kinds[fd] == 'hidraw':
+                data = os.read(fd, 64)
+                if not data:
+                    raise OSError("nodo cerrado")
+                if data[0] == 0x5a and len(data) > 1:
+                    code = data[1]
+            else:
+                data = os.read(fd, size)
+                if len(data) < size:
+                    raise OSError("nodo cerrado")
+                sec, usec, etype, ecode, value = struct.unpack(fmt, data)
+                if etype == 3 and ecode == 40:
+                    code = value
+            if code in KEYS:
+                command, debounce = KEYS[code]
+                now = time.time()
+                if now - last.get(code, 0.0) > debounce:
+                    last[code] = now
+                    subprocess.run(command)
+            elif code:
+                # Para descubrir códigos de teclas aún sin acción (journalctl --user -u zenbook-hotkeys)
+                print(f"código sin acción: {code:#04x} ({kinds[fd]})", flush=True)
+except OSError:
+    pass
+PYEOF
+            sleep 1
+        done
+        ;;
+    find)
+        _find_devices | grep . || { echo "No encontrado"; exit 1; }
+        ;;
+    *)
+        echo "Uso: zenbook-hotkeys [watch|find]"
+        exit 1
+        ;;
+esac

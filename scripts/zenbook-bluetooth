@@ -1,0 +1,29 @@
+#!/bin/bash
+# Bluetooth del Zenbook Duo
+#
+# Uso: zenbook-bluetooth [on|off|toggle|status]
+
+function _is_blocked() { rfkill -n -o SOFT list bluetooth | head -1 | grep -q "blocked"; }
+
+function _on() {
+    rfkill unblock bluetooth
+    notify-send -a "Bluetooth" -i "bluetooth" "Bluetooth activado" 2>/dev/null
+    echo "Bluetooth activado"
+}
+
+function _off() {
+    rfkill block bluetooth
+    notify-send -a "Bluetooth" -i "bluetooth-disabled" "Bluetooth desactivado" 2>/dev/null
+    echo "Bluetooth desactivado"
+}
+
+case "${1:-toggle}" in
+    on)     _on ;;
+    off)    _off ;;
+    toggle) _is_blocked && _on || _off ;;
+    status) rfkill list bluetooth ;;
+    *)
+        echo "Uso: zenbook-bluetooth [on|off|toggle|status]"
+        exit 1
+        ;;
+esac

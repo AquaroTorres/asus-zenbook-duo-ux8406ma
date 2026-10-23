@@ -1,0 +1,119 @@
+#!/bin/bash
+# Brillo de las dos pantallas del Zenbook Duo
+#
+# Uso: zenbook-brightness [status|set <1|2> <valor>|up [%]|down [%]|sync|watch]
+#
+# gdctl prefs --backlight es un no-op silencioso en eDP-2 (bug de mutter con
+# paneles de EDID clonado). Se aplica vía logind (como gsd-power), que escribe
+# el sysfs de ambos paneles sin necesitar root.
+
+BACKLIGHT_UPPER="/sys/class/backlight/intel_backlight"
+BACKLIGHT_LOWER="/sys/class/backlight/card1-eDP-2-backlight"
+BRIGHTNESS_STEP=5   # % del máximo por pulsación en up/down
+BRIGHTNESS_MIN=4
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+# Indicador en pantalla de GNOME (lo muestra la extensión osd-zenbook por D-Bus)
+function _osd() { gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Osd --method "org.zenbook.Osd.$1" "${@:2}" > /dev/null 2>&1; }
+
+function _pct() { awk "BEGIN { printf \"%.0f%%\", (${1}/${2})*100 }"; }
+
+function _logind_session() {
+    local s
+    s=$(loginctl show-user "$(id -un)" -p Display --value 2>/dev/null)
+    [[ -n "$s" ]] && { echo "$s"; return; }
+    loginctl list-sessions --no-legend 2>/dev/null | awk -v u="$(id -un)" '$3==u{print $1; exit}'
+}
+
+function _logind_set() {
+    local backlight_dir="$1" val="$2" devname session
+    devname=$(basename "$backlight_dir")
+    session=$(_logind_session)
+    if [[ -z "$session" ]]; then
+        echo "No se pudo resolver la sesión de logind" >&2
+        return 1
+    fi
+    busctl call org.freedesktop.login1 \
+        "/org/freedesktop/login1/session/${session}" \
+        org.freedesktop.login1.Session SetBrightness ssu \
+        backlight "$devname" "$val" > /dev/null
+}
+
+function _set() {
+    local monitor="$1" val="$2" max
+    case "$monitor" in
+        1|upper|edp1|eDP-1)
+            max=$(cat "$BACKLIGHT_UPPER/max_brightness")
+            _logind_set "$BACKLIGHT_UPPER" "$val"
+            echo "eDP-1 brillo → ${val}/${max} ($(_pct "$val" "$max"))"
+            ;;
+        2|lower|edp2|eDP-2)
+            max=$(cat "$BACKLIGHT_LOWER/max_brightness")
+            _logind_set "$BACKLIGHT_LOWER" "$val"
+            echo "eDP-2 brillo → ${val}/${max} ($(_pct "$val" "$max"))"
+            ;;
+        *)
+            echo "Monitor desconocido: $monitor (usa 1 o 2)"
+            exit 1
+            ;;
+    esac
+}
+
+case "${1:-status}" in
+    status)
+        mv=$(cat "$BACKLIGHT_UPPER/brightness");   mm=$(cat "$BACKLIGHT_UPPER/max_brightness")
+        sv=$(cat "$BACKLIGHT_LOWER/brightness"); sm=$(cat "$BACKLIGHT_LOWER/max_brightness")
+        echo "eDP-1: ${mv}/${mm}  ($(_pct $mv $mm))"
+        echo "eDP-2: ${sv}/${sm}  ($(_pct $sv $sm))"
+        ;;
+    set)
+        if [[ -z "$2" || -z "$3" ]]; then
+            echo "Uso: zenbook-brightness set <1|2> <valor 4-400>"
+            exit 1
+        fi
+        _set "$2" "$3"
+        ;;
+    up|down)
+        # Sube o baja ambas pantallas en pasos de % del máximo, partiendo de eDP-1
+        step_pct="${2:-$BRIGHTNESS_STEP}"
+        max=$(cat "$BACKLIGHT_UPPER/max_brightness")
+        cur=$(cat "$BACKLIGHT_UPPER/brightness")
+        delta=$(( max * step_pct / 100 )); (( delta < 1 )) && delta=1
+        [[ "$1" == "up" ]] && new=$(( cur + delta )) || new=$(( cur - delta ))
+        (( new > max )) && new=$max
+        (( new < BRIGHTNESS_MIN )) && new=$BRIGHTNESS_MIN
+        _logind_set "$BACKLIGHT_UPPER" "$new"
+        if [[ -d "$BACKLIGHT_LOWER" ]]; then
+            max2=$(cat "$BACKLIGHT_LOWER/max_brightness")
+            _logind_set "$BACKLIGHT_LOWER" $(( new * max2 / max ))
+        fi
+        echo "Brillo → ${new}/${max} ($(_pct "$new" "$max"))"
+        _osd Show display-brightness-symbolic "Brillo" "$(awk "BEGIN { printf \"%.3f\", $new / $max }")"
+        ;;
+    sync)
+        val=$(cat "$BACKLIGHT_UPPER/brightness")
+        echo "Sincronizando eDP-2 → ${val}..."
+        _logind_set "$BACKLIGHT_LOWER" "$val"
+        ;;
+    watch)
+        if ! command -v inotifywait > /dev/null; then
+            echo "Error: inotify-tools no instalado. Ejecuta: sudo pacman -S inotify-tools"
+            exit 1
+        fi
+        echo "Sincronizando brillo eDP-1 → eDP-2 (Ctrl+C para detener)..."
+        while true; do
+            inotifywait -e modify "${BACKLIGHT_UPPER}/brightness" > /dev/null 2>&1
+            _logind_set "$BACKLIGHT_LOWER" "$(cat "$BACKLIGHT_UPPER/brightness")"
+        done
+        ;;
+    *)
+        echo "Uso: zenbook-brightness [status|set <1|2> <valor>|up [%]|down [%]|sync|watch]"
+        echo "  status          Brillo actual de ambas pantallas"
+        echo "  up|down [%]     Sube o baja ambas pantallas (por defecto BRIGHTNESS_STEP %)"
+        echo "  set 1 <valor>   Brillo de eDP-1 (4-400)"
+        echo "  set 2 <valor>   Brillo de eDP-2 (4-400)"
+        echo "  sync            Iguala eDP-2 al brillo de eDP-1"
+        echo "  watch           Sincroniza eDP-2 cuando cambia eDP-1"
+        exit 1
+        ;;
+esac

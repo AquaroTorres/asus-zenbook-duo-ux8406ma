@@ -1,0 +1,159 @@
+#!/bin/bash
+# Micrófono del Zenbook Duo: silenciar/activar y luz naranja de la tecla F9
+#
+# Uso: zenbook-microphone [toggle|mute|unmute|status|sync [--force]|watch]
+#   toggle   Alterna el micrófono predeterminado y actualiza la luz de F9
+#   mute     Silencia el micrófono
+#   unmute   Activa el micrófono
+#   status   Imprime muted|unmuted
+#   sync     Pone la luz de F9 según el estado actual (--force: reenvía siempre;
+#            el teclado no recuerda la luz al reconectarse)
+#   watch    Mantiene la luz sincronizada cuando el micrófono cambia por otro
+#            medio (GNOME, Discord, etc.). Corre como servicio de usuario.
+#
+# La luz es el reporte 5a d0 7c <0|1> (capturado del driver de Windows por el
+# proyecto zakstam/zenbook-duo-linux). Se envía como root igual que zenbook-keyboard-backlight:
+# por USB ctrl_transfer a la interfaz 4, por Bluetooth hidraw. Para eso este
+# script se llama a sí mismo con `sudo -n zenbook-microphone _led on|off`.
+
+PYTHON3=$(which python3)
+KB_NAME="Zenbook Duo"
+KB_USB_ID="0b05:1b2c"
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+LED_STATE_FILE="/tmp/zenbook-mic-led"
+
+function _find_hidraw_devices() {
+    local uevent driver hid_id bus phys dev
+    for uevent in /sys/class/hidraw/*/device/uevent; do
+        grep -qi "$KB_NAME" "$uevent" 2>/dev/null || continue
+        driver=$(grep 'DRIVER=' "$uevent" | sed 's/DRIVER=//')
+        [[ "$driver" == "hid-multitouch" || "$driver" == "hid-sensor-hub" ]] && continue
+        hid_id=$(grep 'HID_ID=' "$uevent" | sed 's/HID_ID=//')
+        bus="${hid_id%%:*}"
+        dev="/dev/$(basename "$(dirname "$(dirname "$uevent")")")"
+        phys=$(grep 'HID_PHYS=' "$uevent" | sed 's/HID_PHYS=//')
+        [[ "$bus" == "0003" && "$phys" != */input4 ]] && continue
+        echo "$dev"
+    done
+}
+
+# Modo interno (root): envía la luz al teclado
+if [[ "$1" == "_led" ]]; then
+    [[ "$2" == "on" || "$2" == "off" ]] || exit 1
+    [[ $EUID -eq 0 ]] || exec sudo -n "$0" _led "$2"
+    LED="$2" KB_USB_ID="$KB_USB_ID" "$PYTHON3" - $(_find_hidraw_devices) << 'PYEOF'
+import sys, os, fcntl
+
+data = bytearray([0x5A, 0xD0, 0x7C, 1 if os.environ['LED'] == 'on' else 0] + [0] * 12)
+HIDIOCSFEATURE = 0xC0104806
+
+# hidraw primero: el kernel envía el SET_REPORT sin desacoplar el driver de la interfaz. Con
+# pyusb (detach/attach) esa interfaz se vuelve a crear, el nodo hidraw cambia y quien lo escucha
+# (zenbook-hotkeys) lo pierde y entra en un bucle de reinicios.
+for path in sys.argv[1:]:
+    try:
+        with open(path, 'r+b') as f:
+            fcntl.ioctl(f, HIDIOCSFEATURE, data)
+        sys.exit(0)
+    except OSError:
+        continue
+
+# Respaldo: USB ctrl_transfer a la interfaz 4 (desacopla el driver brevemente)
+try:
+    import usb.core, usb.util
+    vid, pid = (int(x, 16) for x in os.environ['KB_USB_ID'].split(':'))
+    dev = usb.core.find(idVendor=vid, idProduct=pid)
+    if dev is not None:
+        WINDEX = 4
+        was_active = dev.is_kernel_driver_active(WINDEX)
+        if was_active:
+            dev.detach_kernel_driver(WINDEX)
+        try:
+            dev.ctrl_transfer(0x21, 0x09, 0x035A, WINDEX, list(data), timeout=1000)
+            sys.exit(0)
+        except usb.core.USBError as e:
+            print(f"ctrl_transfer USB falló: {e}", file=sys.stderr)
+        finally:
+            usb.util.release_interface(dev, WINDEX)
+            if was_active:
+                try:
+                    dev.attach_kernel_driver(WINDEX)
+                except Exception:
+                    pass
+except ImportError:
+    pass
+except Exception:
+    pass
+
+print("Error: no se pudo enviar la luz del micrófono", file=sys.stderr)
+sys.exit(1)
+PYEOF
+    exit $?
+fi
+
+function _muted() { wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q MUTED; }
+
+function _set_led() {
+    local want="$1" force="$2"
+    [[ -z "$force" && "$(cat "$LED_STATE_FILE" 2>/dev/null)" == "$want" ]] && return 0
+    if sudo -n "$0" _led "$want" > /dev/null 2>&1; then
+        echo "$want" > "$LED_STATE_FILE"
+    else
+        rm -f "$LED_STATE_FILE"   # teclado ausente: reintentar en el próximo sync
+        return 1
+    fi
+}
+
+function _sync() {
+    if _muted; then _set_led on "$1"; else _set_led off "$1"; fi
+}
+
+# Indicador en pantalla de GNOME (lo muestra la extensión osd-zenbook por D-Bus);
+# si la extensión no está cargada, notificación normal.
+function _notify() {
+    gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Osd \
+        --method org.zenbook.Osd.ShowText "$1" "$2" > /dev/null 2>&1 && return
+    notify-send -a "Micrófono" -i "$1" -h string:x-canonical-private-synchronous:zenbook-microphone \
+        -t 1500 "$2" 2>/dev/null
+}
+
+case "${1:-toggle}" in
+    toggle)
+        wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+        _sync
+        # Solo "Micrófono": el icono indica si está silenciado o activo (como el volumen)
+        if _muted; then _notify microphone-sensitivity-muted-symbolic "Micrófono"
+        else _notify microphone-sensitivity-high-symbolic "Micrófono"; fi
+        ;;
+    mute)
+        wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1
+        _sync
+        ;;
+    unmute)
+        wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0
+        _sync
+        ;;
+    status)
+        _muted && echo "muted" || echo "unmuted"
+        ;;
+    sync)
+        if [[ "$2" == "--force" ]]; then _sync force; else _sync; fi
+        ;;
+    watch)
+        if ! command -v pactl > /dev/null; then
+            echo "Error: pactl no encontrado (paquete libpulse)" >&2
+            exit 1
+        fi
+        _sync force
+        echo "$(date) - Vigilando el micrófono (muted: $(_muted && echo sí || echo no))"
+        # Cambios del micrófono o del dispositivo predeterminado
+        pactl subscribe | while read -r line; do
+            [[ "$line" == *"on source #"* || "$line" == *"on server"* ]] || continue
+            _sync
+        done
+        ;;
+    *)
+        echo "Uso: zenbook-microphone [toggle|mute|unmute|status|sync [--force]|watch]"
+        exit 1
+        ;;
+esac

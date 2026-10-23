@@ -1,0 +1,10 @@
+[Unit]
+Description=Zenbook Duo - teclas especiales (F4, F5, F6, F8, F9, Fn+Esc y la tecla de pantalla)
+
+[Service]
+ExecStart=/usr/local/bin/zenbook-hotkeys watch
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

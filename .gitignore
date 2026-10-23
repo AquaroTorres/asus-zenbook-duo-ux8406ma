@@ -1,0 +1,5 @@
+# Logs de captura (tools/capture-input.py)
+*.log
+__pycache__/
+# Configuración local del editor
+.vscode/

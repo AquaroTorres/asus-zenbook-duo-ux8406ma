@@ -1,0 +1,27 @@
+#!/bin/bash
+# Intercambia las ventanas entre las dos pantallas (tecla F8)
+#
+# Uso: zenbook-swap-screens
+#
+# Mover ventanas solo lo puede hacer GNOME Shell, así que lo hace la extensión
+# intercambio-pantallas, que expone org.zenbook.Screens.Swap por D-Bus. Si la extensión
+# no está cargada (hay que cerrar sesión tras instalarla), avisa con una notificación.
+#
+# Con la pantalla inferior apagada (p. ej. teclado por USB) no hay nada que intercambiar: no hace
+# nada y no avisa.
+
+MONITOR_LOWER="eDP-2"
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+# DRM refleja el estado real del panel ("enabled"/"disabled"); es más rápido que `gdctl show`
+[[ "$(cat /sys/class/drm/card*-"$MONITOR_LOWER"/enabled 2>/dev/null | head -1)" == "enabled" ]] || exit 0
+
+if gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Screens \
+        --method org.zenbook.Screens.Swap > /dev/null 2>&1; then
+    exit 0
+fi
+
+echo "Intercambio de pantallas no disponible: la extensión intercambio-pantallas no está cargada" >&2
+notify-send -a "Pantallas" -i video-display-symbolic "Intercambio de pantallas no disponible" \
+    "Cierra sesión y vuelve a entrar para cargar la extensión intercambio-pantallas." 2>/dev/null
+exit 1

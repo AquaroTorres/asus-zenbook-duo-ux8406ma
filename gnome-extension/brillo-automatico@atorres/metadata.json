@@ -1,0 +1,6 @@
+{
+  "uuid": "brillo-automatico@atorres",
+  "name": "Brillo automático",
+  "description": "Botón en Ajustes rápidos para activar o desactivar el brillo automático (sensor de luz ambiente) de GNOME.",
+  "shell-version": ["50"]
+}

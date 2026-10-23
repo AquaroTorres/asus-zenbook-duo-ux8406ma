@@ -1,0 +1,14 @@
+[Unit]
+Description=Zenbook Duo - vigila la conexión del teclado (pantalla inferior, luz, bloqueo Fn)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStartPre=/bin/sleep 3
+ExecStart=/usr/local/bin/zenbook-keyboard-monitor watch
+Restart=on-failure
+RestartSec=5
+Environment=XDG_CURRENT_DESKTOP=GNOME
+
+[Install]
+WantedBy=graphical-session.target

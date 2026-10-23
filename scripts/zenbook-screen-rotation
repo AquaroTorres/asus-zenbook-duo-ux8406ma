@@ -1,0 +1,75 @@
+#!/bin/bash
+# Rotación de pantallas del Zenbook Duo
+#
+# Uso: zenbook-screen-rotation [normal|left|right|inverted|auto|status]
+#   auto   Rota según el acelerómetro (requiere iio-sensor-proxy)
+
+MONITOR_UPPER="eDP-1"
+MONITOR_LOWER="eDP-2"
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+function _scale() { gdctl show | grep "Scale:" | head -1 | grep -oP '[\d.]+'; }
+function _count() { gdctl show | grep "Logical monitor #" | wc -l; }
+
+function _apply() {
+    local transform="$1" scale dual
+    scale=$(_scale); dual=$(_count)
+    if (( dual >= 2 )); then
+        case "$transform" in
+            normal)
+                gdctl set \
+                    --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" \
+                    --logical-monitor --scale "$scale" --monitor "$MONITOR_LOWER" --below "$MONITOR_UPPER" ;;
+            left)
+                gdctl set \
+                    --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" --transform 90 \
+                    --logical-monitor --scale "$scale" --monitor "$MONITOR_LOWER" --left-of "$MONITOR_UPPER" --transform 90 ;;
+            right)
+                gdctl set \
+                    --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" --transform 270 \
+                    --logical-monitor --scale "$scale" --monitor "$MONITOR_LOWER" --right-of "$MONITOR_UPPER" --transform 270 ;;
+            inverted)
+                gdctl set \
+                    --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" --transform 180 \
+                    --logical-monitor --scale "$scale" --monitor "$MONITOR_LOWER" --above "$MONITOR_UPPER" --transform 180 ;;
+        esac
+    else
+        case "$transform" in
+            normal)   gdctl set --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" ;;
+            left)     gdctl set --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" --transform 90 ;;
+            right)    gdctl set --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" --transform 270 ;;
+            inverted) gdctl set --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" --transform 180 ;;
+        esac
+    fi
+    echo "Rotación: $transform"
+}
+
+case "${1:-status}" in
+    normal|0)     _apply normal ;;
+    left|90)      _apply left ;;
+    right|270)    _apply right ;;
+    inverted|180) _apply inverted ;;
+    auto)
+        if ! command -v monitor-sensor > /dev/null; then
+            echo "Error: iio-sensor-proxy no instalado. Ejecuta: sudo pacman -S iio-sensor-proxy"
+            exit 1
+        fi
+        echo "Rotación automática activa (Ctrl+C para detener)..."
+        monitor-sensor --accel | \
+            stdbuf -oL grep "Accelerometer orientation changed:" | \
+            stdbuf -oL awk '{print $4}' | \
+            while read -r orientation; do
+                case "$orientation" in
+                    normal)    _apply normal ;;
+                    left-up)   _apply left ;;
+                    right-up)  _apply right ;;
+                    bottom-up) _apply inverted ;;
+                esac
+            done
+        ;;
+    status) gdctl show | grep -E "Transform|Primary|Scale" | grep -v "^$" ;;
+    *)
+        echo "Uso: zenbook-screen-rotation [normal|left|right|inverted|auto|status]"
+        exit 1
+        ;;
+esac

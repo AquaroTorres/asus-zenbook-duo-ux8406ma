@@ -1,0 +1,6 @@
+{
+  "uuid": "osd-zenbook@atorres",
+  "name": "Indicadores del Zenbook",
+  "description": "Muestra el indicador en pantalla de GNOME (el de abajo, como el de volumen) cuando los scripts zenbook-* cambian la luz del teclado, el brillo, el micrófono, el bloqueo Fn o la pantalla inferior.",
+  "shell-version": ["50"]
+}

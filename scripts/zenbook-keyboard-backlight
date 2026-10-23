@@ -1,0 +1,138 @@
+#!/bin/bash
+# Retroiluminación del teclado del ASUS Zenbook Duo UX8406MA
+#
+# Uso: zenbook-keyboard-backlight [0|1|2|3|cycle|status]
+#   0-3     Nivel (apagada / baja / media / alta)
+#   cycle   0→1→2→3→0
+#   status  Conexión y nivel actual
+#
+# Instalación: ./install.sh
+
+PYTHON3=$(which python3)
+KB_STATE_FILE="/tmp/kb-backlight-level"
+KB_NAME="Zenbook Duo"
+KB_USB_ID="0b05:1b2c"
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+# Indicador en pantalla de GNOME (lo muestra la extensión osd-zenbook por D-Bus)
+function _osd() {
+    gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Osd \
+        --method org.zenbook.Osd.Show keyboard-brightness-symbolic \
+        "Luz del teclado" "$(awk "BEGIN { printf \"%.3f\", $1 / 3 }")" > /dev/null 2>&1
+}
+
+function _find_hidraw_devices() {
+    local usb_dev bt_devs=""
+    for uevent in /sys/class/hidraw/*/device/uevent; do
+        grep -qi "$KB_NAME" "$uevent" 2>/dev/null || continue
+        local driver hid_id bus phys
+        driver=$(grep 'DRIVER=' "$uevent" 2>/dev/null | sed 's/DRIVER=//')
+        [[ "$driver" == "hid-multitouch" || "$driver" == "hid-sensor-hub" ]] && continue
+        hid_id=$(grep 'HID_ID=' "$uevent" 2>/dev/null | sed 's/HID_ID=//')
+        bus="${hid_id%%:*}"
+        local dev="/dev/$(basename "$(dirname "$(dirname "$uevent")")")"
+        if [[ "$bus" == "0003" ]]; then
+            # USB: el control del backlight está en la interfaz 4
+            phys=$(grep 'HID_PHYS=' "$uevent" 2>/dev/null | sed 's/HID_PHYS=//')
+            [[ "$phys" == */input4 ]] && usb_dev="$dev"
+        elif [[ "$bus" == "0005" ]]; then
+            bt_devs="$bt_devs $dev"
+        fi
+    done
+    [[ -n "$usb_dev" ]] && echo "$usb_dev"
+    [[ -n "$bt_devs" ]] && echo "$bt_devs"
+}
+
+function _set_level_root() {
+    local level="$1" devs
+    devs=$(_find_hidraw_devices)
+    if [[ -z "$devs" ]]; then
+        echo "Error: teclado Zenbook Duo no encontrado (ni USB ni BT)" >&2
+        exit 1
+    fi
+    KB_USB_ID="$KB_USB_ID" "$PYTHON3" - "$level" $devs << 'PYEOF'
+import sys, fcntl, os
+
+level = int(sys.argv[1])
+devices = sys.argv[2:]
+data = bytearray([0x5A, 0xBA, 0xC5, 0xC4, level] + [0] * 11)
+HIDIOCSFEATURE = 0xC0104806
+
+# hidraw primero: el kernel envía el SET_REPORT sin desacoplar el driver de la interfaz. Con
+# pyusb (detach/attach) esa interfaz se vuelve a crear, el nodo hidraw cambia y quien lo escucha
+# (zenbook-hotkeys) lo pierde y entra en un bucle de reinicios.
+for dev_path in devices:
+    try:
+        with open(dev_path, 'r+b') as f:
+            fcntl.ioctl(f, HIDIOCSFEATURE, data)
+        print(f"Retroiluminación → nivel {level} ({dev_path})")
+        sys.exit(0)
+    except OSError:
+        continue
+
+# Respaldo: USB ctrl_transfer a la interfaz 4 (desacopla el driver brevemente)
+try:
+    import usb.core, usb.util
+    vid, pid = (int(x, 16) for x in os.environ['KB_USB_ID'].split(':'))
+    dev = usb.core.find(idVendor=vid, idProduct=pid)
+    if dev is not None:
+        WINDEX = 4
+        was_active = dev.is_kernel_driver_active(WINDEX)
+        if was_active:
+            dev.detach_kernel_driver(WINDEX)
+        try:
+            dev.ctrl_transfer(0x21, 0x09, 0x035A, WINDEX, list(data), timeout=1000)
+            print(f"Retroiluminación → nivel {level} (USB)")
+            sys.exit(0)
+        except usb.core.USBError as e:
+            print(f"ctrl_transfer USB falló: {e}", file=sys.stderr)
+        finally:
+            usb.util.release_interface(dev, WINDEX)
+            if was_active:
+                try:
+                    dev.attach_kernel_driver(WINDEX)
+                except Exception:
+                    pass
+except ImportError:
+    pass  # sin python-pyusb
+except Exception:
+    pass
+
+print("Error: no se pudo cambiar la retroiluminación", file=sys.stderr)
+sys.exit(1)
+PYEOF
+}
+
+function _set_level() {
+    local level="$1" previous
+    if [[ $EUID -ne 0 ]]; then
+        previous=$(cat "$KB_STATE_FILE" 2>/dev/null)
+        sudo -n "$0" "$level" || exit 1
+        # La parte privilegiada no llega a la sesión gráfica: el aviso lo envía el usuario
+        [[ "$previous" != "$level" ]] && _osd "$level"
+        return
+    fi
+    _set_level_root "$level" && echo "$level" > "$KB_STATE_FILE"
+}
+
+case "${1:-status}" in
+    0|1|2|3)
+        _set_level "$1"
+        ;;
+    cycle)
+        current=$(cat "$KB_STATE_FILE" 2>/dev/null)
+        [[ ! "$current" =~ ^[0-3]$ ]] && current=0
+        _set_level $(( (current + 1) % 4 ))
+        ;;
+    status)
+        devs=$(_find_hidraw_devices)
+        if [[ -z "$devs" ]]; then echo "Teclado Zenbook Duo: NO conectado"; exit 1; fi
+        level=$(cat "$KB_STATE_FILE" 2>/dev/null)
+        [[ ! "$level" =~ ^[0-3]$ ]] && level="desconocido"
+        echo "Teclado Zenbook Duo: conectado ($(echo $devs | tr '\n' ' ')) | nivel: ${level}"
+        ;;
+    *)
+        echo "Uso: zenbook-keyboard-backlight [0|1|2|3|cycle|status]"
+        exit 1
+        ;;
+esac

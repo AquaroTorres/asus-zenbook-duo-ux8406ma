@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""Mapea qué envía cada tecla de función del teclado del Zenbook Duo.
+
+Uso:
+    zenbook-keymap [capture] [--bus usb|bt] [--out DIR] [--timeout S] [--only F1,F4] [--no-grab]
+    zenbook-keymap devices          # nodos del teclado detectados
+    zenbook-keymap show ARCHIVO     # tabla de un mapa ya guardado
+
+Por cada tecla F1..F12 pide dos pulsaciones: la tecla sola y Fn + la tecla.
+Registra todo lo que llega por evdev (/dev/input) y por hidraw (/dev/hidraw) y
+lo guarda en DIR/keymap-<bus>.json (por defecto ./keymap). Se hace una captura
+por conexión: una con el teclado por USB y otra por Bluetooth.
+
+Conviene ejecutarlo con sudo: el hidraw del teclado Bluetooth no es legible sin
+root (la regla udev solo cubre el teclado USB) y por USB algunas teclas llegan
+solo por hidraw.
+
+Mientras captura, el teclado queda "agarrado" (EVIOCGRAB): las teclas no llegan
+al escritorio, así que no suben el volumen ni cambian el brillo. Esc cancela y
+guarda lo capturado; si no pasa nada en --timeout segundos se salta la tecla.
+
+El resultado depende del bloqueo Fn (Fn+Esc) con que esté el teclado: anótalo.
+"""
+
+import argparse
+import datetime
+import fcntl
+import glob
+import json
+import os
+import re
+import select
+import struct
+import sys
+import termios
+import time
+
+CONFIG = "/etc/zenbook-duo.conf"
+INPUT_CODES = "/usr/include/linux/input-event-codes.h"
+EVENT = struct.Struct("llHHi")
+EVIOCGRAB = 0x40044590
+EVIOCGKEY = 0x80604518  # estado de las teclas: bitmap de 96 bytes
+EV_KEY, EV_ABS, EV_MSC = 1, 3, 4
+KEY_ESC = 1
+EXTRA_EVDEV = ("asus wmi hotkeys",)  # algunas teclas Fn pueden salir por aquí
+WINDOW = 0.8     # segundos que se sigue leyendo tras la primera señal
+SETTLE = 0.5     # segundos que se descartan tras cada tecla (eventos de soltar)
+KEYS = [f"F{n}" for n in range(1, 13)]
+
+
+def kb_name():
+    try:
+        with open(CONFIG) as f:
+            m = re.search(r'^KB_NAME="([^"]*)"', f.read(), re.M)
+            if m:
+                return m.group(1)
+    except OSError:
+        pass
+    return "Zenbook Duo"
+
+
+def key_names():
+    names = {}
+    try:
+        with open(INPUT_CODES) as f:
+            for line in f:
+                m = re.match(r"#define\s+(KEY_\w+)\s+(\d+)\s*$", line)
+                if m:
+                    names.setdefault(int(m.group(2)), m.group(1))
+    except OSError:
+        pass
+    return names
+
+
+def read(path):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def find_devices(name):
+    """Nodos del teclado: lista de dicts {path, kind, label, bus}."""
+    devs = []
+    needle = name.lower()
+    for d in sorted(glob.glob("/sys/class/input/event*")):
+        n = read(f"{d}/device/name")
+        low = n.lower()
+        if low.endswith(("mouse", "touchpad")):
+            continue
+        if needle in low or low in EXTRA_EVDEV:
+            devs.append({"path": f"/dev/input/{os.path.basename(d)}", "kind": "evdev",
+                         "label": os.path.basename(d), "bus": None, "name": n})
+    for u in sorted(glob.glob("/sys/class/hidraw/hidraw*/device/uevent")):
+        info = dict(l.split("=", 1) for l in read(u).splitlines() if "=" in l)
+        if needle not in info.get("HID_NAME", "").lower():
+            continue
+        if info.get("DRIVER") in ("hid-multitouch", "hid-sensor-hub"):
+            continue
+        bus = {"0003": "usb", "0005": "bt"}.get(info.get("HID_ID", "").split(":")[0])
+        base = u.split("/")[4]
+        phys = info.get("HID_PHYS", "")
+        iface = phys.rsplit("/", 1)[-1] if bus == "usb" else ""
+        devs.append({"path": f"/dev/{base}", "kind": "hidraw",
+                     "label": f"{base}{'/' + iface if iface else ''}", "bus": bus,
+                     "name": info.get("HID_NAME", "")})
+    return devs
+
+
+def detect_bus(devs):
+    buses = {d["bus"] for d in devs if d["bus"]}
+    if "usb" in buses:
+        return "usb"
+    if "bt" in buses:
+        return "bt"
+    return None
+
+
+def open_nodes(devs):
+    fds = {}
+    for d in devs:
+        try:
+            fd = os.open(d["path"], os.O_RDONLY | os.O_NONBLOCK)
+        except OSError as e:
+            print(f"  ! no se pudo abrir {d['path']} ({d['name']}): {e.strerror}", file=sys.stderr)
+            continue
+        fds[fd] = d
+    return fds
+
+
+def keys_down(fds):
+    for fd, d in fds.items():
+        if d["kind"] != "evdev":
+            continue
+        try:
+            if any(fcntl.ioctl(fd, EVIOCGKEY, bytes(96))):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def wait_released(fds, timeout=5):
+    """Espera a que no haya teclas presionadas.
+
+    Agarrar o soltar el teclado con una tecla abajo deja la suelta sin entregar
+    al escritorio, y esa tecla se queda repitiéndose.
+    """
+    end = time.time() + timeout
+    while keys_down(fds) and time.time() < end:
+        time.sleep(0.05)
+
+
+def grab_nodes(fds):
+    for fd, d in fds.items():
+        if d["kind"] != "evdev":
+            continue
+        try:
+            fcntl.ioctl(fd, EVIOCGRAB, 1)
+        except OSError as e:
+            print(f"  ! no se pudo agarrar {d['path']}: {e.strerror}", file=sys.stderr)
+
+
+def poll(fds, names, timeout):
+    """Lee lo disponible. Devuelve [(descripcion, es_disparo, es_esc)]."""
+    out = []
+    ready, _, _ = select.select(list(fds), [], [], timeout)
+    for fd in ready:
+        d = fds[fd]
+        try:
+            data = os.read(fd, EVENT.size * 64 if d["kind"] == "evdev" else 64)
+        except (BlockingIOError, OSError):
+            continue
+        if d["kind"] == "hidraw":
+            trigger = any(data[1:])
+            out.append((f"hidraw[{d['label']}] {data.hex(' ')}", trigger, False))
+            continue
+        for off in range(0, len(data) - EVENT.size + 1, EVENT.size):
+            _, _, etype, code, value = EVENT.unpack_from(data, off)
+            if etype == EV_KEY and value != 2:
+                nm = names.get(code, f"KEY_{code}")
+                out.append((f"evdev[{d['label']}] EV_KEY {nm}({code})={value}",
+                            value == 1, code == KEY_ESC and value == 1))
+            elif etype == EV_ABS:
+                out.append((f"evdev[{d['label']}] EV_ABS {code}={value}", value != 0, False))
+            elif etype == EV_MSC:
+                out.append((f"evdev[{d['label']}] EV_MSC {code}={value:#x}", True, False))
+    return out
+
+
+def capture_key(fds, names, timeout):
+    """Espera la primera señal y recoge la ventana. Devuelve (eventos, abortar)."""
+    deadline = time.time() + timeout
+    events, started = [], None
+    while True:
+        now = time.time()
+        if started is None:
+            if now >= deadline:
+                return [], False
+            wait = deadline - now
+        else:
+            wait = started + WINDOW - now
+            if wait <= 0:
+                break
+        for desc, trigger, esc in poll(fds, names, wait):
+            if esc:
+                return events, True
+            if started is None:
+                if not trigger:
+                    continue
+                started = time.time()
+            if desc not in events:
+                events.append(desc)
+    # descartar lo que llegue al soltar
+    end = time.time() + SETTLE
+    while time.time() < end:
+        poll(fds, names, end - time.time())
+    return events, False
+
+
+def summarize(events):
+    pressed = [e for e in events if not re.search(r"=0$", e) and not e.endswith(" 5a 00 00 00 00 00")]
+    text = " | ".join(re.sub(r"^(evdev|hidraw)\[[^\]]*\] ", "", e) for e in (pressed or events))
+    return text if len(text) <= 70 else text[:67] + "..."
+
+
+def print_table(keymap):
+    print(f"\n{'Tecla':<6} {'Sola':<72} Fn + tecla")
+    for key, modes in keymap.items():
+        print(f"{key:<6} {summarize(modes.get('sola', [])) or '-':<72} "
+              f"{summarize(modes.get('fn', [])) or '-'}")
+
+
+def cmd_devices(args):
+    devs = find_devices(kb_name())
+    if not devs:
+        print("No se encontró el teclado.")
+        return 1
+    for d in devs:
+        print(f"{d['kind']:<7} {d['path']:<18} {d['bus'] or '-':<4} {d['name']}")
+    print(f"Bus detectado: {detect_bus(devs) or 'desconocido'}")
+    return 0
+
+
+def cmd_show(args):
+    with open(args.file) as f:
+        data = json.load(f)
+    print(f"Bus: {data['bus']}  |  Capturado: {data['captured']}  |  Bloqueo Fn: {data.get('fnlock', '?')}")
+    print_table(data["keys"])
+    return 0
+
+
+def cmd_capture(args):
+    devs = find_devices(kb_name())
+    bus = args.bus or detect_bus(devs)
+    if not devs or not bus:
+        print("No se encontró el teclado Zenbook Duo (ni USB ni Bluetooth).", file=sys.stderr)
+        return 1
+    keys = [k.strip().upper() for k in args.only.split(",")] if args.only else KEYS
+    names = key_names()
+
+    print(f"Teclado por {bus.upper()}. Nodos:")
+    for d in devs:
+        print(f"  {d['kind']:<7} {d['path']:<18} {d['name']}")
+    if os.geteuid() != 0:
+        print("\n  Aviso: sin root el hidraw puede no ser legible (usa sudo para captura completa).")
+    print("\nSe pedirá cada tecla sola y luego con Fn. Esc cancela. "
+          f"Sin pulsación en {args.timeout:g} s se salta la tecla.")
+    fnlock = input("¿Bloqueo Fn activado (Fn+Esc)? [s/n/?] ").strip().lower() or "?"
+    fnlock = {"s": "on", "n": "off"}.get(fnlock, "?")
+
+    fds = open_nodes(devs)
+    if not fds:
+        print("No se pudo abrir ningún nodo.", file=sys.stderr)
+        return 1
+    if not args.no_grab:
+        wait_released(fds)
+        grab_nodes(fds)
+
+    tty = sys.stdin.isatty()
+    saved = termios.tcgetattr(0) if tty else None
+    if tty:
+        attrs = termios.tcgetattr(0)
+        attrs[3] &= ~(termios.ECHO | termios.ICANON)
+        termios.tcsetattr(0, termios.TCSANOW, attrs)
+
+    keymap, aborted = {}, False
+    steps = [(k, m) for k in keys for m in ("sola", "fn")]
+    try:
+        poll(fds, names, 0.2)  # limpiar pendientes
+        for i, (key, mode) in enumerate(steps, 1):
+            label = key if mode == "sola" else f"Fn + {key}"
+            print(f"[{i:>2}/{len(steps)}] Presiona {label} ... ", end="", flush=True)
+            events, aborted = capture_key(fds, names, args.timeout)
+            if aborted:
+                print("cancelado")
+                break
+            keymap.setdefault(key, {})[mode] = events
+            print(summarize(events) if events else "sin evento")
+    except KeyboardInterrupt:
+        aborted = True
+    finally:
+        if not args.no_grab:
+            wait_released(fds)
+        for fd in fds:
+            os.close(fd)  # libera el agarre
+        if tty:
+            termios.tcsetattr(0, termios.TCSANOW, saved)
+            termios.tcflush(0, termios.TCIFLUSH)
+
+    if not keymap:
+        print("Nada capturado; no se guarda archivo.")
+        return 1
+    os.makedirs(args.out, exist_ok=True)
+    path = os.path.join(args.out, f"keymap-{bus}.json")
+    data = {"bus": bus, "fnlock": fnlock, "captured": datetime.datetime.now().isoformat(timespec="seconds"),
+            "devices": [{k: d[k] for k in ("kind", "path", "name")} for d in devs],
+            "keys": keymap}
+    if args.only and os.path.exists(path):
+        # recaptura parcial: se conservan las demás teclas del archivo
+        with open(path) as f:
+            previous = json.load(f)
+        merged = previous["keys"]
+        for key, modes in keymap.items():
+            merged.setdefault(key, {}).update(modes)
+        data["keys"] = keymap = dict(sorted(merged.items(), key=lambda kv: int(kv[0][1:])))
+        if previous.get("fnlock") != fnlock:
+            print(f"  Aviso: el bloqueo Fn del archivo era '{previous.get('fnlock')}' y ahora indicas '{fnlock}'.")
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    uid, gid = os.environ.get("SUDO_UID"), os.environ.get("SUDO_GID")
+    if uid and gid:
+        for p in (args.out, path):
+            os.chown(p, int(uid), int(gid))
+    print_table(keymap)
+    print(f"\nGuardado en {path}" + (" (captura incompleta)" if aborted else ""))
+    return 0
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd")
+    c = sub.add_parser("capture", help="capturar el mapa de teclas")
+    for sp in (p, c):
+        sp.add_argument("--bus", choices=("usb", "bt"), help="etiqueta del archivo (por defecto se detecta)")
+        sp.add_argument("--out", default="keymap", help="directorio de salida (por defecto ./keymap)")
+        sp.add_argument("--timeout", type=float, default=15, help="segundos de espera por tecla")
+        sp.add_argument("--only", help="solo estas teclas, p. ej. F4,F5 (se fusionan con el archivo existente)")
+        sp.add_argument("--no-grab", action="store_true", help="no agarrar el teclado (las teclas llegan al escritorio)")
+    sub.add_parser("devices", help="listar nodos del teclado")
+    s = sub.add_parser("show", help="mostrar un mapa guardado")
+    s.add_argument("file")
+    args = p.parse_args()
+    return {"devices": cmd_devices, "show": cmd_show}.get(args.cmd, cmd_capture)(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

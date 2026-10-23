@@ -1,0 +1,242 @@
+{
+  "bus": "usb",
+  "fnlock": "off",
+  "captured": "2026-10-23T00:13:18",
+  "devices": [
+    {
+      "kind": "evdev",
+      "path": "/dev/input/event24",
+      "name": "Asus WMI hotkeys"
+    },
+    {
+      "kind": "evdev",
+      "path": "/dev/input/event256",
+      "name": "Primax Electronics Ltd. ASUS Zenbook Duo Keyboard"
+    },
+    {
+      "kind": "evdev",
+      "path": "/dev/input/event7",
+      "name": "Primax Electronics Ltd. ASUS Zenbook Duo Keyboard"
+    },
+    {
+      "kind": "hidraw",
+      "path": "/dev/hidraw12",
+      "name": "Primax Electronics Ltd. ASUS Zenbook Duo Keyboard"
+    },
+    {
+      "kind": "hidraw",
+      "path": "/dev/hidraw3",
+      "name": "Primax Electronics Ltd. ASUS Zenbook Duo Keyboard"
+    },
+    {
+      "kind": "hidraw",
+      "path": "/dev/hidraw4",
+      "name": "Primax Electronics Ltd. ASUS Zenbook Duo Keyboard"
+    },
+    {
+      "kind": "hidraw",
+      "path": "/dev/hidraw5",
+      "name": "Primax Electronics Ltd. ASUS Zenbook Duo Keyboard"
+    },
+    {
+      "kind": "hidraw",
+      "path": "/dev/hidraw6",
+      "name": "Primax Electronics Ltd. ASUS Zenbook Duo Keyboard"
+    }
+  ],
+  "keys": {
+    "F1": {
+      "sola": [
+        "evdev[event256] EV_MSC 4=0x7003a",
+        "evdev[event256] EV_KEY KEY_F1(59)=1",
+        "hidraw[hidraw3/input0] 00 00 3a 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F1(59)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x7003a",
+        "evdev[event256] EV_KEY KEY_F1(59)=1",
+        "hidraw[hidraw3/input0] 00 00 3a 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F1(59)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F2": {
+      "sola": [
+        "evdev[event256] EV_MSC 4=0x7003b",
+        "evdev[event256] EV_KEY KEY_F2(60)=1",
+        "hidraw[hidraw3/input0] 00 00 3b 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F2(60)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x7003b",
+        "evdev[event256] EV_KEY KEY_F2(60)=1",
+        "hidraw[hidraw3/input0] 00 00 3b 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F2(60)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F3": {
+      "sola": [
+        "evdev[event256] EV_MSC 4=0x7003c",
+        "evdev[event256] EV_KEY KEY_F3(61)=1",
+        "hidraw[hidraw3/input0] 00 00 3c 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F3(61)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x7003c",
+        "evdev[event256] EV_KEY KEY_F3(61)=1",
+        "hidraw[hidraw3/input0] 00 00 3c 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F3(61)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F4": {
+      "sola": [
+        "evdev[event256] EV_MSC 4=0x7003d",
+        "evdev[event256] EV_KEY KEY_F4(62)=1",
+        "hidraw[hidraw3/input0] 00 00 3d 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F4(62)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x7003d",
+        "evdev[event256] EV_KEY KEY_F4(62)=1",
+        "hidraw[hidraw3/input0] 00 00 3d 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F4(62)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F5": {
+      "sola": [
+        "evdev[event256] EV_MSC 4=0x7003e",
+        "evdev[event256] EV_KEY KEY_F5(63)=1",
+        "hidraw[hidraw3/input0] 00 00 3e 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F5(63)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x7003e",
+        "evdev[event256] EV_KEY KEY_F5(63)=1",
+        "hidraw[hidraw3/input0] 00 00 3e 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F5(63)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F6": {
+      "sola": [
+        "evdev[event256] EV_MSC 4=0x7003f",
+        "evdev[event256] EV_KEY KEY_F6(64)=1",
+        "hidraw[hidraw3/input0] 00 00 3f 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F6(64)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x7003f",
+        "evdev[event256] EV_KEY KEY_F6(64)=1",
+        "hidraw[hidraw3/input0] 00 00 3f 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F6(64)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F7": {
+      "sola": [
+        "evdev[event256] EV_MSC 4=0x70040",
+        "evdev[event256] EV_KEY KEY_F7(65)=1",
+        "hidraw[hidraw3/input0] 00 00 40 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F7(65)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x70040",
+        "evdev[event256] EV_KEY KEY_F7(65)=1",
+        "hidraw[hidraw3/input0] 00 00 40 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F7(65)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F8": {
+      "sola": [
+        "evdev[event256] EV_MSC 4=0x70041",
+        "evdev[event256] EV_KEY KEY_F8(66)=1",
+        "hidraw[hidraw3/input0] 00 00 41 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F8(66)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x70041",
+        "evdev[event256] EV_KEY KEY_F8(66)=1",
+        "hidraw[hidraw3/input0] 00 00 41 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F8(66)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F9": {
+      "sola": [
+        "evdev[event256] EV_MSC 4=0x70042",
+        "evdev[event256] EV_KEY KEY_F9(67)=1",
+        "hidraw[hidraw3/input0] 00 00 42 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F9(67)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x70042",
+        "evdev[event256] EV_KEY KEY_F9(67)=1",
+        "hidraw[hidraw3/input0] 00 00 42 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F9(67)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F10": {
+      "sola": [
+        "hidraw[hidraw12/input4] 5a 3d 64 01 00 00",
+        "evdev[event256] EV_MSC 4=0x70043",
+        "evdev[event256] EV_KEY KEY_F10(68)=1",
+        "hidraw[hidraw3/input0] 00 00 43 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F10(68)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x70043",
+        "evdev[event256] EV_KEY KEY_F10(68)=1",
+        "hidraw[hidraw3/input0] 00 00 43 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F10(68)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F11": {
+      "sola": [
+        "evdev[event256] EV_MSC 4=0x70044",
+        "evdev[event256] EV_KEY KEY_F11(87)=1",
+        "hidraw[hidraw3/input0] 00 00 44 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F11(87)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x70044",
+        "evdev[event256] EV_KEY KEY_F11(87)=1",
+        "hidraw[hidraw3/input0] 00 00 44 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F11(87)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    },
+    "F12": {
+      "sola": [
+        "evdev[event256] EV_MSC 4=0x70045",
+        "evdev[event256] EV_KEY KEY_F12(88)=1",
+        "hidraw[hidraw3/input0] 00 00 45 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F12(88)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ],
+      "fn": [
+        "evdev[event256] EV_MSC 4=0x70045",
+        "evdev[event256] EV_KEY KEY_F12(88)=1",
+        "hidraw[hidraw3/input0] 00 00 45 00 00 00 00 00",
+        "evdev[event256] EV_KEY KEY_F12(88)=0",
+        "hidraw[hidraw3/input0] 00 00 00 00 00 00 00 00"
+      ]
+    }
+  }
+}

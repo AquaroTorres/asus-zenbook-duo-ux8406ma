@@ -1,0 +1,13 @@
+[Unit]
+Description=Zenbook Duo - rotación automática de pantallas con el acelerómetro
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/local/bin/zenbook-screen-rotation auto
+# always: si monitor-sensor no logra reclamar el acelerómetro (timeout) el script sale con código 0 y
+# on-failure no lo reiniciaría
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,52 @@
+#!/bin/bash
+# Mapea cada touchscreen a su pantalla en el Zenbook Duo
+#
+# Uso: zenbook-touchscreen [setup]
+#
+# Los nombres e IDs de los touchscreens están en /etc/zenbook-duo.conf.
+#
+# Ambos paneles tienen el mismo EDID (SDC:419d), así que GNOME mapea los dos
+# touchscreens a eDP-1. Con el EDID personalizado de eDP-2 (serial "eDP-2",
+# ver edid/edp2.bin) gsettings puede distinguirlos. xinput cubre XWayland y
+# toma efecto de inmediato.
+
+MONITOR_UPPER="eDP-1"
+MONITOR_LOWER="eDP-2"
+TOUCH_UPPER_NAME="ELAN9008:00 04F3:425B"
+TOUCH_UPPER_ID="04f3:425b"
+TOUCH_LOWER_NAME="ELAN9009:00 04F3:425A"
+TOUCH_LOWER_ID="04f3:425a"
+PANEL_VENDOR="SDC"
+PANEL_PRODUCT="419d"
+PANEL_LOWER_SERIAL="eDP-2"
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+function _gsettings_map() {
+    gsettings set \
+        "org.gnome.desktop.peripherals.touchscreen:/org/gnome/desktop/peripherals/touchscreens/$1/" \
+        output "['$PANEL_VENDOR', '$PANEL_PRODUCT', '$2']" 2>/dev/null
+}
+
+function _xinput_map() {
+    xinput map-to-output "$1" "$2" 2>/dev/null && echo "xinput: $1 → $2"
+}
+
+case "${1:-setup}" in
+    setup)
+        # gsettings (apps Wayland nativas; requiere EDID personalizado + reinicio)
+        _gsettings_map "$TOUCH_LOWER_ID" "$PANEL_LOWER_SERIAL" && echo "gsettings: $MONITOR_LOWER → $TOUCH_LOWER_NAME"
+        _gsettings_map "$TOUCH_UPPER_ID" "" && echo "gsettings: $MONITOR_UPPER → $TOUCH_UPPER_NAME"
+
+        # xinput (X11/XWayland, sin reinicio)
+        if command -v xinput > /dev/null 2>&1 && [[ -n "$DISPLAY" ]]; then
+            _xinput_map "$TOUCH_LOWER_NAME"          "$MONITOR_LOWER"
+            _xinput_map "$TOUCH_LOWER_NAME Stylus"   "$MONITOR_LOWER"
+            _xinput_map "$TOUCH_UPPER_NAME"            "$MONITOR_UPPER"
+            _xinput_map "$TOUCH_UPPER_NAME Stylus"     "$MONITOR_UPPER"
+        fi
+        ;;
+    *)
+        echo "Uso: zenbook-touchscreen [setup]"
+        exit 1
+        ;;
+esac

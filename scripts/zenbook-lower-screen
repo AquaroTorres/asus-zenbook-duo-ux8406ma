@@ -1,0 +1,63 @@
+#!/bin/bash
+# Pantalla inferior (eDP-2) del Zenbook Duo
+#
+# Uso: zenbook-lower-screen [on|off|toggle|status]
+#
+# Solo cambia la pantalla. Quién decide cuándo (al conectar o desconectar el teclado) es el
+# servicio zenbook-keyboard-monitor; la tecla dedicada usa toggle (zenbook-hotkeys).
+
+MONITOR_UPPER="eDP-1"
+MONITOR_LOWER="eDP-2"
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+# Indicador en pantalla de GNOME (lo muestra la extensión osd-zenbook por D-Bus);
+# si la extensión no está cargada, notificación normal.
+# Texto "Pantalla inferior: encendida|apagada" con el icono de pantalla; apagada sale atenuado,
+# como los iconos de mute. Uso: _osd on|off
+# Cadena de respaldo: ShowState; ShowText (versión anterior de la extensión, sin atenuar el icono,
+# hasta reiniciar sesión); notify-send (extensión no cargada; sale arriba, no abajo).
+function _osd() {
+    local state="encendida" on=true text
+    [[ "$1" == "off" ]] && { state="apagada"; on=false; }
+    text="Pantalla inferior: $state"
+    local osd=(gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Osd --method)
+    "${osd[@]}" org.zenbook.Osd.ShowState video-display-symbolic "$text" "$on" > /dev/null 2>&1 && return
+    "${osd[@]}" org.zenbook.Osd.ShowText video-display-symbolic "$text" > /dev/null 2>&1 && return
+    notify-send -a "Monitor" -i video-display-symbolic "$text" 2>/dev/null
+}
+
+function _scale() { gdctl show | grep "Scale:" | head -1 | grep -oP '[\d.]+'; }
+function _count() { gdctl show | grep "Logical monitor #" | wc -l; }
+
+function _on() {
+    local scale; scale=$(_scale)
+    gdctl set \
+        --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" \
+        --logical-monitor --scale "$scale" --monitor "$MONITOR_LOWER" --below "$MONITOR_UPPER"
+    _osd on
+    echo "Pantalla inferior encendida"
+    # Reaplica el mapeo de touchscreens tras cambiar la topología
+    command -v zenbook-touchscreen > /dev/null && (sleep 1; zenbook-touchscreen setup) &
+}
+
+function _off() {
+    local scale; scale=$(_scale)
+    gdctl set --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER"
+    _osd off
+    echo "Pantalla inferior apagada"
+}
+
+case "${1:-toggle}" in
+    on)     _on ;;
+    off)    _off ;;
+    toggle) (( $(_count) >= 2 )) && _off || _on ;;
+    status)
+        count=$(_count); scale=$(_scale)
+        (( count >= 2 )) && state="ON" || state="OFF"
+        echo "Superior: $MONITOR_UPPER | Inferior: $MONITOR_LOWER → $state | Escala: $scale"
+        ;;
+    *)
+        echo "Uso: zenbook-lower-screen [on|off|toggle|status]"
+        exit 1
+        ;;
+esac

@@ -1,0 +1,27 @@
+#!/bin/bash
+# WiFi del Zenbook Duo
+#
+# Uso: zenbook-wifi [on|off|toggle|status]
+
+function _on() {
+    nmcli radio wifi on
+    notify-send -a "WiFi" -i "network-wireless" "WiFi activado" 2>/dev/null
+    echo "WiFi activado"
+}
+
+function _off() {
+    nmcli radio wifi off
+    notify-send -a "WiFi" -i "network-wireless-offline" "WiFi desactivado" 2>/dev/null
+    echo "WiFi desactivado"
+}
+
+case "${1:-toggle}" in
+    on)     _on ;;
+    off)    _off ;;
+    toggle) [[ "$(nmcli radio wifi)" = "enabled" ]] && _off || _on ;;
+    status) echo "WiFi: $(nmcli radio wifi)"; nmcli -c no device status | grep wifi ;;
+    *)
+        echo "Uso: zenbook-wifi [on|off|toggle|status]"
+        exit 1
+        ;;
+esac

@@ -1,0 +1,6 @@
+{
+  "uuid": "intercambio-pantallas@atorres",
+  "name": "Intercambio de pantallas",
+  "description": "Intercambia las ventanas entre las dos pantallas del Zenbook Duo (tecla F8, vía el script zenbook-swap-screens y D-Bus).",
+  "shell-version": ["50"]
+}
