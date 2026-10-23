@@ -108,7 +108,7 @@ function _sync() {
     if _muted; then _set_led on "$1"; else _set_led off "$1"; fi
 }
 
-# Indicador en pantalla de GNOME (lo muestra la extensión osd-zenbook por D-Bus);
+# Indicador en pantalla de GNOME (lo muestra la extensión on-screen-display por D-Bus);
 # si la extensión no está cargada, notificación normal.
 function _notify() {
     gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Osd \

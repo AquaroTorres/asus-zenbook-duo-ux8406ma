@@ -1,5 +1,5 @@
 {
-  "uuid": "rotacion-pantalla@atorres",
+  "uuid": "screen-rotation@zenbook-duo",
   "name": "Rotación de pantalla",
   "description": "Botón con menú en Ajustes rápidos para rotar las pantallas del Zenbook Duo.",
   "shell-version": ["50"]

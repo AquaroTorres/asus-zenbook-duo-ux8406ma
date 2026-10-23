@@ -1,7 +1,7 @@
 # ASUS Zenbook Duo (UX8406MA) en Linux
 
 Un script por función para controlar el Zenbook Duo en Manjaro/Arch con GNOME
-(Wayland), más cinco extensiones de GNOME Shell. Cada script es independiente y
+(Wayland), más seis extensiones de GNOME Shell. Cada script es independiente y
 se puede usar solo.
 
 > **Aviso:** probado únicamente en un **ASUS Zenbook Duo UX8406MA** con **Manjaro** y **GNOME 50 (Wayland)**.
@@ -38,11 +38,12 @@ Detalles técnicos y decisiones de diseño: [AGENTS.md](AGENTS.md).
 
 | Extensión | Qué hace |
 |---|---|
-| `osd-zenbook` | Muestra el indicador inferior (como el del volumen) cuando cambian la luz del teclado, el brillo, el micrófono, el bloqueo Fn o la pantalla inferior |
-| `pantalla-inferior` | Botón "Pantalla inferior" en Ajustes rápidos para encenderla o apagarla |
-| `rotacion-pantalla` | Botón con menú en Ajustes rápidos: rotación normal, izquierda, derecha, invertida y automática |
-| `brillo-automatico` | Botón en Ajustes rápidos para activar o desactivar el brillo automático de GNOME |
-| `intercambio-pantallas` | Mueve las ventanas entre pantallas cuando `zenbook-swap-screens` se lo pide (sin icono) |
+| `on-screen-display` | Muestra el indicador inferior (como el del volumen) cuando cambian la luz del teclado, el brillo, el micrófono, el bloqueo Fn o la pantalla inferior |
+| `lower-screen` | Botón "Pantalla inferior" en Ajustes rápidos para encenderla o apagarla |
+| `screen-rotation` | Botón con menú en Ajustes rápidos: rotación normal, izquierda, derecha, invertida y automática |
+| `auto-brightness` | Botón en Ajustes rápidos para activar o desactivar el brillo automático de GNOME |
+| `battery-charge-limit` | Botón en Ajustes rápidos para quitar o volver a poner el límite de carga de la batería, y cargar hasta el 100 % |
+| `swap-screens` | Mueve las ventanas entre pantallas cuando `zenbook-swap-screens` se lo pide (sin icono) |
 
 ### Servicios (`systemd/user/`)
 
@@ -86,7 +87,7 @@ Al final lista lo que falte. Orquesta los tres instaladores, que también se pue
 - crea `/etc/sudoers.d/zenbook-duo` (la luz del teclado necesita root);
 - instala la regla udev de hidraw y te agrega al grupo `input`;
 - instala los servicios de usuario y activa `zenbook-hotkeys`, `zenbook-screen-rotation`, `zenbook-microphone` y `zenbook-keyboard-monitor`;
-- instala y habilita las cinco extensiones.
+- instala y habilita las seis extensiones.
 
 No instala el EDID personalizado ni toca GRUB/initramfs: eso lo hace `./install-lower-screen-edid.sh` (ver [Touchscreens](#zenbook-touchscreen)).
 
@@ -142,7 +143,7 @@ Cambia el nivel (0 apagada, 1 baja, 2 media, 3 alta). `cycle` pasa al siguiente.
 `status` muestra si el teclado está conectado y el nivel guardado. Funciona por
 USB y por Bluetooth (por hidraw, sin desacoplar el driver del teclado). Se auto-eleva con `sudo -n`, por eso necesita la entrada
 de sudoers. Al cambiar el nivel (F4 o cualquier llamada) muestra el indicador inferior
-de GNOME: el texto "Luz del teclado" y el nivel en la barra (vía `osd-zenbook`).
+de GNOME: el texto "Luz del teclado" y el nivel en la barra (vía `on-screen-display`).
 
 ### `zenbook-keyboard-backlight-sleep`: luz del teclado al suspender
 No se ejecuta a mano: `systemd-sleep` lo llama como root al suspender o hibernar (el instalador lo
@@ -309,7 +310,7 @@ zenbook-swap-screens
 ```
 Intercambia las ventanas de la pantalla superior con las de la inferior (tecla F8, icono del
 cuadrado con flechas arriba y abajo). Mover ventanas solo lo puede hacer GNOME Shell, así que lo hace
-la extensión `intercambio-pantallas`, que expone `org.zenbook.Screens.Swap` por D-Bus; si no está
+la extensión `swap-screens`, que expone `org.zenbook.Screens.Swap` por D-Bus; si no está
 cargada (hay que cerrar sesión tras instalarla), avisa con una notificación. Identifica las pantallas
 por su conector (`eDP-1` y `eDP-2`), así que un monitor externo no interfiere. **Con la pantalla
 inferior apagada (por ejemplo, con el teclado por USB) no hace nada y no avisa**: no hay nada que
@@ -347,15 +348,16 @@ Para GNOME Shell 50. Se instalan en `~/.local/share/gnome-shell/extensions/`.
 
 | Extensión | Dónde aparece | Qué hace |
 |---|---|---|
-| `osd-zenbook@atorres` | Indicador inferior (como el de volumen) | Sin icono. Muestra el indicador de GNOME cuando los scripts cambian la **luz del teclado** (F4) o el **brillo** (F5/F6), con barra de nivel, o el **micrófono** (F9), el **bloqueo Fn** y la **pantalla inferior**, con icono y texto. El texto es fijo ("Luz del teclado", "Brillo", "Micrófono", "Bloqueo Fn") y el estado lo da el icono o la barra, como en el volumen; la pantalla muestra "Pantalla inferior: encendida" o "apagada", con el icono atenuado cuando está apagada, igual que los iconos de mute. Expone `org.zenbook.Osd` por D-Bus; sin ella el micrófono, el bloqueo Fn y la pantalla usan una notificación normal y el resto no avisa. |
-| `pantalla-inferior@atorres` | Ajustes rápidos | Botón "Pantalla inferior" para encender o apagar la pantalla inferior (subtítulo Encendida/Apagada). |
-| `intercambio-pantallas@atorres` | Sin icono | Intercambia las ventanas entre las dos pantallas con F8. Expone `org.zenbook.Screens.Swap` por D-Bus; lo llama el script `zenbook-swap-screens`. |
-| `brillo-automatico@atorres` | Ajustes rápidos | Botón que activa o desactiva el brillo automático de GNOME (`ambient-enabled`). Se actualiza si lo cambias desde Configuración. |
-| `rotacion-pantalla@atorres` | Ajustes rápidos | Botón con menú: normal, izquierda, derecha, invertida y rotación automática. |
+| `on-screen-display@zenbook-duo` | Indicador inferior (como el de volumen) | Sin icono. Muestra el indicador de GNOME cuando los scripts cambian la **luz del teclado** (F4) o el **brillo** (F5/F6), con barra de nivel, o el **micrófono** (F9), el **bloqueo Fn** y la **pantalla inferior**, con icono y texto. El texto es fijo ("Luz del teclado", "Brillo", "Micrófono", "Bloqueo Fn") y el estado lo da el icono o la barra, como en el volumen; la pantalla muestra "Pantalla inferior: encendida" o "apagada", con el icono atenuado cuando está apagada, igual que los iconos de mute. Expone `org.zenbook.Osd` por D-Bus; sin ella el micrófono, el bloqueo Fn y la pantalla usan una notificación normal y el resto no avisa. |
+| `lower-screen@zenbook-duo` | Ajustes rápidos | Botón "Pantalla inferior" para encender o apagar la pantalla inferior (subtítulo Encendida/Apagada). |
+| `swap-screens@zenbook-duo` | Sin icono | Intercambia las ventanas entre las dos pantallas con F8. Expone `org.zenbook.Screens.Swap` por D-Bus; lo llama el script `zenbook-swap-screens`. |
+| `auto-brightness@zenbook-duo` | Ajustes rápidos | Botón que activa o desactiva el brillo automático de GNOME (`ambient-enabled`). Se actualiza si lo cambias desde Configuración. |
+| `battery-charge-limit@zenbook-duo` | Ajustes rápidos | Botón "Carga completa": marcado = **sin límite** (la batería carga hasta el 100 %); desmarcado = vuelve el límite de carga (el subtítulo muestra el porcentaje, p. ej. «Límite 80 %»). Usa el límite de UPower, el mismo de Configuración → Energía, por D-Bus: sin root ni contraseña. No aparece si el equipo no tiene batería con límite de carga. |
+| `screen-rotation@zenbook-duo` | Ajustes rápidos | Botón con menú: normal, izquierda, derecha, invertida y rotación automática. |
 
-`pantalla-inferior` y `rotacion-pantalla` llaman a `/usr/local/bin/zenbook-lower-screen` y
+`lower-screen` y `screen-rotation` llaman a `/usr/local/bin/zenbook-lower-screen` y
 `zenbook-screen-rotation`. No hay iconos de la luz del teclado ni del bloqueo Fn en la barra superior:
-sus avisos son el indicador inferior de `osd-zenbook`.
+sus avisos son el indicador inferior de `on-screen-display`.
 
 ## Servicios
 
@@ -372,7 +374,7 @@ Logs: `journalctl --user -u zenbook-hotkeys -f`.
 
 ```
 scripts/            un script por función (zenbook-*)
-gnome-extension/    las cinco extensiones
+gnome-extension/    las seis extensiones
 systemd/user/       servicios de usuario
 udev/               regla para leer hidraw sin root
 zenbook-duo.conf    configuración (→ /etc/zenbook-duo.conf)

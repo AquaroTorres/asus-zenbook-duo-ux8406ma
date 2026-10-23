@@ -14,7 +14,7 @@ KB_NAME="Zenbook Duo"
 KB_USB_ID="0b05:1b2c"
 [[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
 
-# Indicador en pantalla de GNOME (lo muestra la extensión osd-zenbook por D-Bus)
+# Indicador en pantalla de GNOME (lo muestra la extensión on-screen-display por D-Bus)
 function _osd() {
     gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Osd \
         --method org.zenbook.Osd.Show keyboard-brightness-symbolic \

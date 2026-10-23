@@ -44,7 +44,7 @@ class LowerScreenToggle extends QuickToggle {
                 this._sync();
             });
         } catch (e) {
-            console.error(`pantalla-inferior: ${e}`);
+            console.error(`lower-screen: ${e}`);
             this._busy = false;
             this._sync();
         }

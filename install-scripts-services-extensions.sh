@@ -55,8 +55,9 @@ systemctl --user enable --now zenbook-hotkeys.service zenbook-screen-rotation.se
 systemctl --user restart zenbook-hotkeys.service zenbook-screen-rotation.service zenbook-microphone.service zenbook-keyboard-monitor.service
 
 echo "==> Extensiones de GNOME"
-# Retiradas: sus avisos pasaron a osd-zenbook (indicador inferior) y se quitó el icono de la barra
-for uuid in luz-teclado@atorres bloqueo-fn@atorres pantalla-secundaria@atorres; do
+# Se retiran las extensiones con identificadores anteriores (@atorres, nombres en español) y las ya
+# retiradas (luz-teclado, bloqueo-fn, pantalla-secundaria: sus avisos pasaron a on-screen-display).
+for uuid in osd-zenbook@atorres pantalla-inferior@atorres rotacion-pantalla@atorres brillo-automatico@atorres intercambio-pantallas@atorres carga-completa@atorres luz-teclado@atorres bloqueo-fn@atorres pantalla-secundaria@atorres; do
     gnome-extensions disable "$uuid" 2>/dev/null || true
     rm -rf "$HOME/.local/share/gnome-shell/extensions/$uuid"
 done

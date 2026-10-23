@@ -1,0 +1,8 @@
+{
+  "uuid": "battery-charge-limit@zenbook-duo",
+  "name": "Límite de carga de la batería",
+  "description": "Botón en Ajustes rápidos para quitar o volver a poner el límite de carga de la batería (UPower), y así cargar hasta el 100 %.",
+  "shell-version": [
+    "50"
+  ]
+}

@@ -13,7 +13,7 @@ BRIGHTNESS_STEP=5   # % del máximo por pulsación en up/down
 BRIGHTNESS_MIN=4
 [[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
 
-# Indicador en pantalla de GNOME (lo muestra la extensión osd-zenbook por D-Bus)
+# Indicador en pantalla de GNOME (lo muestra la extensión on-screen-display por D-Bus)
 function _osd() { gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Osd --method "org.zenbook.Osd.$1" "${@:2}" > /dev/null 2>&1; }
 
 function _pct() { awk "BEGIN { printf \"%.0f%%\", (${1}/${2})*100 }"; }

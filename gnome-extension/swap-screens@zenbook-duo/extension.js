@@ -24,7 +24,7 @@ class ScreensService {
         const manager = global.backend.get_monitor_manager();
         const [top, bottom] = PANELS.map(c => manager.get_monitor_for_connector(c));
         if (top < 0 || bottom < 0 || top === bottom) {
-            console.log('intercambio-pantallas: omitido (falta una de las dos pantallas)');
+            console.log('swap-screens: omitido (falta una de las dos pantallas)');
             return;
         }
 
@@ -42,7 +42,7 @@ class ScreensService {
                 moves.push([window, top]);
         }
         moves.forEach(([window, target]) => window.move_to_monitor(target));
-        console.log(`intercambio-pantallas: ${moves.length} ventanas intercambiadas`);
+        console.log(`swap-screens: ${moves.length} ventanas intercambiadas`);
     }
 }
 

@@ -10,7 +10,7 @@ MONITOR_UPPER="eDP-1"
 MONITOR_LOWER="eDP-2"
 [[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
 
-# Indicador en pantalla de GNOME (lo muestra la extensión osd-zenbook por D-Bus);
+# Indicador en pantalla de GNOME (lo muestra la extensión on-screen-display por D-Bus);
 # si la extensión no está cargada, notificación normal.
 # Texto "Pantalla inferior: encendida|apagada" con el icono de pantalla; apagada sale atenuado,
 # como los iconos de mute. Uso: _osd on|off

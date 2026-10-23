@@ -58,7 +58,7 @@ export default class BrilloAutomaticoExtension extends Extension {
     enable() {
         const source = Gio.SettingsSchemaSource.get_default();
         if (!source?.lookup(SCHEMA, true)) {
-            console.error(`brillo-automatico: no existe el esquema ${SCHEMA}`);
+            console.error(`auto-brightness: no existe el esquema ${SCHEMA}`);
             return;
         }
         this._settings = new Gio.Settings({schemaId: SCHEMA});

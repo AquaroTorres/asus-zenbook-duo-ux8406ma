@@ -19,7 +19,7 @@
 #
 # Envío igual que zenbook-keyboard-backlight: por USB ctrl_transfer a la interfaz 4, por
 # Bluetooth hidraw. Se auto-eleva con sudo -n (ver sudoers en install-scripts-services-extensions.sh).
-# on, off y toggle muestran el indicador inferior de GNOME (osd-zenbook), como zenbook-microphone.
+# on, off y toggle muestran el indicador inferior de GNOME (on-screen-display), como zenbook-microphone.
 
 PYTHON3=$(which python3)
 KB_NAME="Zenbook Duo"
@@ -50,7 +50,7 @@ if [[ -z "$ROOT_MODE" && $EUID -ne 0 ]]; then
         else
             icon="changes-allow-symbolic"; text="Bloqueo Fn"
         fi
-        # Indicador en pantalla de GNOME (extensión osd-zenbook por D-Bus); si no está cargada, notificación
+        # Indicador en pantalla de GNOME (extensión on-screen-display por D-Bus); si no está cargada, notificación
         gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Osd \
             --method org.zenbook.Osd.ShowText "$icon" "$text" > /dev/null 2>&1 || \
             notify-send -a "Bloqueo Fn" -i "$icon" -h string:x-canonical-private-synchronous:zenbook-fn-lock \

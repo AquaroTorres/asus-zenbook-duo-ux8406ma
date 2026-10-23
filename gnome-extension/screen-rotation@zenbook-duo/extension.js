@@ -71,11 +71,11 @@ class RotationToggle extends QuickMenuToggle {
                     p.wait_finish(res);
                     callback?.(p.get_successful());
                 } catch (e) {
-                    console.error(`rotacion-pantalla: ${e}`);
+                    console.error(`screen-rotation: ${e}`);
                 }
             });
         } catch (e) {
-            console.error(`rotacion-pantalla: ${e}`);
+            console.error(`screen-rotation: ${e}`);
         }
     }
 
@@ -108,11 +108,11 @@ class RotationToggle extends QuickMenuToggle {
                         this._updateUi();
                     }
                 } catch (e) {
-                    console.error(`rotacion-pantalla: ${e}`);
+                    console.error(`screen-rotation: ${e}`);
                 }
             });
         } catch (e) {
-            console.error(`rotacion-pantalla: ${e}`);
+            console.error(`screen-rotation: ${e}`);
         }
     }
 
@@ -129,7 +129,7 @@ class RotationToggle extends QuickMenuToggle {
                 this._readCurrent();
             });
         } catch (e) {
-            console.error(`rotacion-pantalla: ${e}`);
+            console.error(`screen-rotation: ${e}`);
             this._busy = false;
         }
     }

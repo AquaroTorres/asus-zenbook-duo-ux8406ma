@@ -4,7 +4,7 @@
 # Uso: zenbook-swap-screens
 #
 # Mover ventanas solo lo puede hacer GNOME Shell, así que lo hace la extensión
-# intercambio-pantallas, que expone org.zenbook.Screens.Swap por D-Bus. Si la extensión
+# swap-screens, que expone org.zenbook.Screens.Swap por D-Bus. Si la extensión
 # no está cargada (hay que cerrar sesión tras instalarla), avisa con una notificación.
 #
 # Con la pantalla inferior apagada (p. ej. teclado por USB) no hay nada que intercambiar: no hace
@@ -21,7 +21,7 @@ if gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Screen
     exit 0
 fi
 
-echo "Intercambio de pantallas no disponible: la extensión intercambio-pantallas no está cargada" >&2
+echo "Intercambio de pantallas no disponible: la extensión swap-screens no está cargada" >&2
 notify-send -a "Pantallas" -i video-display-symbolic "Intercambio de pantallas no disponible" \
-    "Cierra sesión y vuelve a entrar para cargar la extensión intercambio-pantallas." 2>/dev/null
+    "Cierra sesión y vuelve a entrar para cargar la extensión swap-screens." 2>/dev/null
 exit 1
