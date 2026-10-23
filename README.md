@@ -4,6 +4,11 @@ Un script por función para controlar el Zenbook Duo en Manjaro/Arch con GNOME
 (Wayland), más cinco extensiones de GNOME Shell. Cada script es independiente y
 se puede usar solo.
 
+> **Aviso:** probado únicamente en un **ASUS Zenbook Duo UX8406MA** con **Manjaro** y **GNOME 50 (Wayland)**.
+> Otros modelos, distribuciones o versiones de GNOME pueden no funcionar, y los instaladores modifican el
+> sistema (`/usr/local/bin`, sudoers, udev, y con `install-lower-screen-edid.sh` el initramfs y GRUB). Revisa
+> los scripts antes de ejecutarlos. Se ofrece sin garantía, bajo licencia GPL-3.
+
 Detalles técnicos y decisiones de diseño: [AGENTS.md](AGENTS.md).
 
 ## Resumen: qué hace cada pieza
