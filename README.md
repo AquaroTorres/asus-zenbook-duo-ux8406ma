@@ -256,6 +256,10 @@ convierte las claves y las instala en BlueZ. Antes hace una copia de seguridad (
 `~/.local/state/zenbook/`, se conservan las 3 últimas), y al terminar BlueZ queda encendido pase lo que pase.
 
 - `--dry-run` muestra qué haría. Si ya está sincronizado no hace nada (`--force` reinstala).
+- **Otros dispositivos:** `--name TEXTO` elige qué dispositivo de Windows copiar, p. ej.
+  `zenbook-bluetooth-windows-sync --name "BT5.0 Mouse"` (el ratón BT5 de Windows). Maneja vínculos Secure
+  Connections (teclado) y heredados (ratón); como plantilla usa la entrada actual, una del mismo nombre
+  o una del mismo fabricante y producto. Al ratón hay que cambiarlo después al canal correspondiente.
 - Reiniciar BlueZ desconecta unos segundos un ratón Bluetooth.
 - Después, pulsa una tecla del teclado en modo Bluetooth (sin USB) para que conecte.
 - Necesita `chntpw` (lo instala el instalador) y la partición de Windows montada (se detecta sola; si no,

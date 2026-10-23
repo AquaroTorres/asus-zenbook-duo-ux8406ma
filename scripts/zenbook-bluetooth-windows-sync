@@ -139,15 +139,21 @@ ltk = hexb(w['LTK']).hex().upper()            # LTK tal cual, SIN invertir (prob
 irk = hexb(w['IRK'])[::-1].hex().upper()      # IRK invertida (el teclado funciona; orden nativo sin verificar)
 rand = int.from_bytes(hexb(w['ERand']), 'little'); ediv = dword(w['EDIV']); enc = dword(w['KeyLength'])
 
-# Plantilla: el info actual de ese dispositivo, o el de otro con el mismo nombre, o una por defecto
+# Plantilla: el info actual de ese dispositivo, o el de otro del mismo nombre, o el de otro con el mismo
+# fabricante y producto (p. ej. el mismo ratón en su otro canal Bluetooth), o la del teclado por defecto
 base = f'/var/lib/bluetooth/{ADAPTER}'
 existing = sudo_cat(f'{base}/{DEV}/info')
-others = []
+wvals = values([x for x in blocks(read_reg(f'{work}/Devices.reg')) if x.split('\n')[0].endswith('\\Devices\\' + dev + ']')][0])
+wvid, wpid = (dword(wvals['VID']) if 'VID' in wvals else None), (dword(wvals['PID']) if 'PID' in wvals else None)
+same_name, same_id = [], []
 for d in sudo_ls(base):
     if re.match(r'^([0-9A-F]{2}:){5}[0-9A-F]{2}$', d) and d != DEV:
         t = sudo_cat(f'{base}/{d}/info')
-        if t and re.search(r'^Name=.*' + re.escape(name_pat), t, re.M | re.I): others.append((d, t))
-tpl = existing or (others[0][1] if others else """[General]
+        if not t: continue
+        if re.search(r'^Name=.*' + re.escape(name_pat), t, re.M | re.I): same_name.append((d, t))
+        v = re.search(r'^Vendor=(\d+)', t, re.M); pr = re.search(r'^Product=(\d+)', t, re.M)
+        if v and pr and wvid is not None and (int(v.group(1)), int(pr.group(1))) == (wvid, wpid): same_id.append((d, t))
+DEFAULT_KEYBOARD = """[General]
 Name=ASUS Zenbook Duo Keyboard
 Appearance=0x03c1
 AddressType=static
@@ -186,7 +192,12 @@ Source=2
 Vendor=2821
 Product=6957
 Version=296
-""")
+"""
+if existing: tpl = existing
+elif same_name: tpl = same_name[0][1]
+elif same_id: tpl = same_id[0][1]
+elif 'zenbook duo keyboard' in name.lower(): tpl = DEFAULT_KEYBOARD
+else: sys.exit('Error: no hay en Linux ningún dispositivo del mismo fabricante/producto que sirva de plantilla; empareja ' + name + ' una vez en Linux')
 
 def setsec(text, sec, **kv):
     m = re.search(rf'(\[{sec}\]\n)(.*?)(?=\n\[|\Z)', text, re.S)
@@ -196,17 +207,20 @@ def setsec(text, sec, **kv):
         body, n = re.subn(rf'^{k}=.*$', f'{k}={val}', body, flags=re.M)
         if n != 1: sys.exit(f'Error: la plantilla no tiene {k} en [{sec}]')
     return text[:m.start(2)] + body + text[m.end(2):]
-new = setsec(tpl, 'IdentityResolvingKey', Key=irk)
-for sec in ('PeripheralLongTermKey', 'SlaveLongTermKey'):
+LTK_SECS = [x for x in ('LongTermKey', 'PeripheralLongTermKey', 'SlaveLongTermKey') if re.search(rf'^\[{x}\]', tpl, re.M)]
+if not LTK_SECS: sys.exit('Error: la plantilla no tiene ninguna sección de clave larga')
+new = setsec(tpl, 'General', Name=name)   # nombre de Windows, no el de la plantilla
+new = setsec(new, 'IdentityResolvingKey', Key=irk)
+for sec in LTK_SECS:
     new = setsec(new, sec, Key=ltk, EncSize=enc, EDiv=ediv, Rand=rand)
 
 def key_of(text, sec):
     m = re.search(rf'\[{sec}\]\nKey=([0-9A-F]+)', text or '')
     return m.group(1) if m else None
-synced = bool(existing) and key_of(existing, 'PeripheralLongTermKey') == ltk and key_of(existing, 'IdentityResolvingKey') == irk
+synced = bool(existing) and all(key_of(existing, x) == ltk for x in LTK_SECS) and key_of(existing, 'IdentityResolvingKey') == irk
 
 open(f'{work}/new.info', 'w').write(new); os.chmod(f'{work}/new.info', 0o600)
-stale = [d for d, _ in others]
+stale = [d for d, _ in same_name]
 open(f'{work}/plan.env', 'w').write(
     f"DEV={DEV}\nADAPTER={ADAPTER}\nSTATUS={'synced' if synced else ('update' if existing else 'new')}\nSTALE=\"{' '.join(stale)}\"\n")
 print(f"\nDispositivo elegido: {DEV} (adaptador {ADAPTER})")
