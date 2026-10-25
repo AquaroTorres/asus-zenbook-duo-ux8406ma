@@ -1,0 +1,25 @@
+.soltar-panel {
+    spacing: 10px;
+    padding: 12px;
+    border-radius: 18px;
+    background-color: rgba(30, 30, 30, 0.88);
+}
+
+.soltar-zona {
+    width: 150px;
+    height: 84px;
+    spacing: 4px;
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    background-color: rgba(255, 255, 255, 0.08);
+    color: white;
+}
+
+.soltar-zona.activa {
+    border-color: #62a0ea;
+    background-color: rgba(98, 160, 234, 0.45);
+}
+
+.soltar-zona StLabel {
+    font-weight: bold;
+}

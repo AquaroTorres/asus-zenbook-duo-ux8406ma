@@ -1,7 +1,7 @@
 # ASUS Zenbook Duo (UX8406MA) en Linux
 
 Un script por función para controlar el Zenbook Duo en Manjaro/Arch con GNOME
-(Wayland), más seis extensiones de GNOME Shell. Cada script es independiente y
+(Wayland), más siete extensiones de GNOME Shell. Cada script es independiente y
 se puede usar solo.
 
 > **Aviso:** probado únicamente en un **ASUS Zenbook Duo UX8406MA** con **Manjaro** y **GNOME 50 (Wayland)**.
@@ -44,6 +44,7 @@ Detalles técnicos y decisiones de diseño: [AGENTS.md](AGENTS.md).
 | `auto-brightness` | Botón en Ajustes rápidos para activar o desactivar el brillo automático de GNOME |
 | `battery-charge-limit` | Botón en Ajustes rápidos para quitar o volver a poner el límite de carga de la batería, y cargar hasta el 100 % |
 | `swap-screens` | Mueve las ventanas entre pantallas cuando `zenbook-swap-screens` se lo pide (sin icono) |
+| `drag-to-screen` | Al arrastrar una ventana muestra en el centro de cada pantalla los iconos Arriba y Abajo; soltarla sobre uno la manda a esa pantalla |
 
 ### Servicios (`systemd/user/`)
 
@@ -87,7 +88,7 @@ Al final lista lo que falte. Orquesta los tres instaladores, que también se pue
 - crea `/etc/sudoers.d/zenbook-duo` (la luz del teclado necesita root);
 - instala la regla udev de hidraw y te agrega al grupo `input`;
 - instala los servicios de usuario y activa `zenbook-hotkeys`, `zenbook-screen-rotation`, `zenbook-microphone` y `zenbook-keyboard-monitor`;
-- instala y habilita las seis extensiones.
+- instala y habilita las siete extensiones.
 
 No instala el EDID personalizado ni toca GRUB/initramfs: eso lo hace `./install-lower-screen-edid.sh` (ver [Touchscreens](#zenbook-touchscreen)).
 
@@ -351,6 +352,7 @@ Para GNOME Shell 50. Se instalan en `~/.local/share/gnome-shell/extensions/`.
 | `on-screen-display@zenbook-duo` | Indicador inferior (como el de volumen) | Sin icono. Muestra el indicador de GNOME cuando los scripts cambian la **luz del teclado** (F4) o el **brillo** (F5/F6), con barra de nivel, o el **micrófono** (F9), el **bloqueo Fn** y la **pantalla inferior**, con icono y texto. El texto es fijo ("Luz del teclado", "Brillo", "Micrófono", "Bloqueo Fn") y el estado lo da el icono o la barra, como en el volumen; la pantalla muestra "Pantalla inferior: encendida" o "apagada", con el icono atenuado cuando está apagada, igual que los iconos de mute. Expone `org.zenbook.Osd` por D-Bus; sin ella el micrófono, el bloqueo Fn y la pantalla usan una notificación normal y el resto no avisa. |
 | `lower-screen@zenbook-duo` | Ajustes rápidos | Botón "Pantalla inferior" para encender o apagar la pantalla inferior (subtítulo Encendida/Apagada). |
 | `swap-screens@zenbook-duo` | Sin icono | Intercambia las ventanas entre las dos pantallas con F8. Expone `org.zenbook.Screens.Swap` por D-Bus; lo llama el script `zenbook-swap-screens`. |
+| `drag-to-screen@zenbook-duo` | Centro de cada pantalla, mientras se arrastra una ventana | Sin icono permanente. Al arrastrar una ventana por su barra de título aparece en el centro de `eDP-1` y de `eDP-2` un panel con dos iconos de monitor, **Arriba** y **Abajo**; soltarla sobre uno la manda a esa pantalla, como `Super+Shift+flecha`, conservando la posición que tenía antes de arrastrar (o maximizada si lo estaba). Solo actúa si están ambas pantallas del notebook; ignora los monitores externos. |
 | `auto-brightness@zenbook-duo` | Ajustes rápidos | Botón que activa o desactiva el brillo automático de GNOME (`ambient-enabled`). Se actualiza si lo cambias desde Configuración. |
 | `battery-charge-limit@zenbook-duo` | Ajustes rápidos | Botón "Carga completa": marcado = **sin límite** (la batería carga hasta el 100 %); desmarcado = vuelve el límite de carga (el subtítulo muestra el porcentaje, p. ej. «Límite 80 %»). Usa el límite de UPower, el mismo de Configuración → Energía, por D-Bus: sin root ni contraseña. No aparece si el equipo no tiene batería con límite de carga. |
 | `screen-rotation@zenbook-duo` | Ajustes rápidos | Botón con menú: normal, izquierda, derecha, invertida y rotación automática. |
@@ -374,7 +376,7 @@ Logs: `journalctl --user -u zenbook-hotkeys -f`.
 
 ```
 scripts/            un script por función (zenbook-*)
-gnome-extension/    las seis extensiones
+gnome-extension/    las siete extensiones
 systemd/user/       servicios de usuario
 udev/               regla para leer hidraw sin root
 zenbook-duo.conf    configuración (→ /etc/zenbook-duo.conf)

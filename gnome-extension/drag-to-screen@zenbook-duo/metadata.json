@@ -1,0 +1,6 @@
+{
+  "uuid": "drag-to-screen@zenbook-duo",
+  "name": "Soltar en pantalla",
+  "description": "Al arrastrar una ventana muestra en el centro de cada pantalla del Zenbook Duo los iconos Arriba y Abajo; soltarla sobre uno la manda a esa pantalla (equivale a Super+Shift+flecha).",
+  "shell-version": ["50"]
+}
