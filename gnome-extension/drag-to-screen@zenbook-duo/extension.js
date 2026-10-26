@@ -5,13 +5,26 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-// Al arrastrar una ventana aparece, en el centro de cada pantalla del notebook (eDP-1 y eDP-2),
-// un panel con un icono Arriba y otro Abajo. Al soltar la ventana sobre uno, se manda a esa
-// pantalla, igual que Super+Shift+flecha. Solo actúa si están ambas pantallas del notebook;
-// los monitores externos se ignoran.
+// Al arrastrar una ventana aparece, debajo del puntero, un panel con una fila por pantalla (Arriba
+// y Abajo) y cuatro iconos por fila: pantalla entera, mitades arriba/abajo, mitades izquierda/derecha
+// y cuartos. Al soltar la ventana sobre una zona, se manda a esa pantalla y, salvo en «entera»
+// (igual que Super+Shift+flecha), se redimensiona a esa fracción del área de trabajo. El panel queda
+// unos OFFSET_PX por debajo del puntero (centrado en él), en la pantalla donde empieza el arrastre.
+// Solo actúa si están ambas pantallas del notebook; los monitores externos se ignoran.
 const MOVING = [Meta.GrabOp.MOVING, Meta.GrabOp.MOVING_UNCONSTRAINED];
 const POLL_MS = 50;
 const PANELS = ['eDP-1', 'eDP-2'];
+const OFFSET_PX = 100;        // distancia entre el puntero y el borde superior del panel
+const MARGIN = 12;            // separación mínima con el borde de la pantalla
+
+// Disposiciones: cada una es una rejilla filas × columnas; cada celda es una zona de destino.
+// «Entera» no redimensiona (conserva el comportamiento de mover a la otra pantalla).
+const LAYOUTS = [
+    {name: 'Entera', rows: 1, cols: 1, full: true},
+    {name: 'Mitades verticales', rows: 1, cols: 2},
+    {name: 'Mitades horizontales', rows: 2, cols: 1},
+    {name: 'Cuartos', rows: 2, cols: 2},
+];
 
 export default class SoltarEnPantallaExtension extends Extension {
     enable() {
@@ -35,10 +48,15 @@ export default class SoltarEnPantallaExtension extends Extension {
     _monitors() {
         const manager = global.backend.get_monitor_manager();
         return PANELS
-            .map(c => manager.get_monitor_for_connector(c))
-            .filter(i => i >= 0)
-            .map(index => ({index, rect: global.display.get_monitor_geometry(index)}))
+            .map(connector => ({connector, index: manager.get_monitor_for_connector(connector)}))
+            .filter(m => m.index >= 0)
+            .map(m => ({...m, rect: global.display.get_monitor_geometry(m.index)}))
             .sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x);
+    }
+
+    // Pantalla del notebook que contiene el puntero (o null: p. ej. está sobre un monitor externo)
+    _hostAt(monitors, px, py) {
+        return monitors.find(({rect: r}) => px >= r.x && px < r.x + r.width && py >= r.y && py < r.y + r.height) ?? null;
     }
 
     _begin(window, op) {
@@ -46,6 +64,10 @@ export default class SoltarEnPantallaExtension extends Extension {
             return;
         const monitors = this._monitors();
         if (monitors.length < 2)
+            return;
+        const [px, py] = global.get_pointer();
+        const host = this._hostAt(monitors, px, py);
+        if (!host)
             return;
 
         this._window = window;
@@ -58,34 +80,24 @@ export default class SoltarEnPantallaExtension extends Extension {
             ? ['Arriba', 'Abajo']
             : monitors.map((_m, i) => `Pantalla ${i + 1}`);
 
-        // Un panel con un icono por pantalla, repetido y centrado en cada una de ellas.
-        for (const host of monitors) {
+        // Un solo panel: una fila por pantalla de destino, con una disposición por icono.
+        {
             const panel = new St.BoxLayout({style_class: 'soltar-panel', vertical: true, reactive: false});
             monitors.forEach((target, i) => {
-                const zone = new St.BoxLayout({style_class: 'soltar-zona'});
-                // Contenido en una caja que se expande y centra, para que quede en medio del cuadro.
-                const content = new St.BoxLayout({
-                    vertical: true,
-                    x_expand: true,
-                    y_expand: true,
-                    x_align: Clutter.ActorAlign.CENTER,
-                    y_align: Clutter.ActorAlign.CENTER,
-                });
-                content.add_child(new St.Icon({icon_name: 'video-display-symbolic', icon_size: 36, x_align: Clutter.ActorAlign.CENTER}));
-                content.add_child(new St.Label({text: names[i], x_align: Clutter.ActorAlign.CENTER}));
-                zone.add_child(content);
-                panel.add_child(zone);
-                this._zones.push({zone, monitor: target.index});
+                const row = new St.BoxLayout({style_class: 'soltar-fila'});
+                row.add_child(new St.Label({text: names[i], style_class: 'soltar-nombre', y_align: Clutter.ActorAlign.CENTER}));
+                LAYOUTS.forEach(layout => row.add_child(this._buildTile(layout, target.index)));
+                panel.add_child(row);
             });
             Main.layoutManager.addTopChrome(panel);
 
             // Se recalcula al recibir el tamaño real, porque antes de eso el panel mide 0.
-            const {x, y, width, height} = host.rect;
-            const center = () => panel.set_position(
-                Math.round(x + (width - panel.width) / 2),
-                Math.round(y + (height - panel.height) / 2));
-            panel.connect('notify::allocation', center);
-            center();
+            const place = () => {
+                const [left, top] = this._position(host.rect, px, py, panel.width, panel.height);
+                panel.set_position(left, top);
+            };
+            panel.connect('notify::allocation', place);
+            place();
             this._panels.push(panel);
         }
 
@@ -93,6 +105,37 @@ export default class SoltarEnPantallaExtension extends Extension {
             this._highlight(this._zoneAtPointer());
             return GLib.SOURCE_CONTINUE;
         });
+    }
+
+    // Icono de una disposición: rejilla de zonas que se registran en this._zones con su fracción.
+    _buildTile(layout, monitor) {
+        const tile = new St.BoxLayout({style_class: 'soltar-tile', vertical: true, x_expand: false});
+        for (let r = 0; r < layout.rows; r++) {
+            const line = new St.BoxLayout({style_class: 'soltar-linea', x_expand: true, y_expand: true});
+            for (let c = 0; c < layout.cols; c++) {
+                const zone = new St.Bin({style_class: 'soltar-zona', x_expand: true, y_expand: true});
+                line.add_child(zone);
+                this._zones.push({
+                    zone,
+                    monitor,
+                    full: !!layout.full,
+                    frac: [c / layout.cols, r / layout.rows, 1 / layout.cols, 1 / layout.rows],
+                });
+            }
+            tile.add_child(line);
+        }
+        return tile;
+    }
+
+    // Esquina superior izquierda del panel: centrado en horizontal sobre el puntero y OFFSET_PX por
+    // debajo; si no cabe abajo, por encima. Siempre dentro de la pantalla.
+    _position(rect, px, py, pw, ph) {
+        const left = Math.max(rect.x + MARGIN, Math.min(px - pw / 2, rect.x + rect.width - pw - MARGIN));
+        let top = py + OFFSET_PX;
+        if (top + ph > rect.y + rect.height - MARGIN)
+            top = py - OFFSET_PX - ph;
+        top = Math.max(rect.y + MARGIN, Math.min(top, rect.y + rect.height - ph - MARGIN));
+        return [Math.round(left), Math.round(top)];
     }
 
     _zoneAtPointer() {
@@ -108,7 +151,7 @@ export default class SoltarEnPantallaExtension extends Extension {
 
     _highlight(hit) {
         this._zones?.forEach(z => {
-            z.zone.style_class = hit && z.monitor === hit.monitor ? 'soltar-zona activa' : 'soltar-zona';
+            z.zone.style_class = z === hit ? 'soltar-zona activa' : 'soltar-zona';
         });
     }
 
@@ -123,13 +166,28 @@ export default class SoltarEnPantallaExtension extends Extension {
             // Se mueve fuera del callback para que el grab ya esté liberado. Primero se devuelve
             // la ventana a su posición original y luego se cambia de pantalla, como Super+Shift+flecha.
             GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                if (wasMaximized) {
-                    window.maximize();
+                if (hit.full) {
+                    if (wasMaximized)
+                        window.maximize();
+                    else
+                        window.move_resize_frame(true, rect.x, rect.y, rect.width, rect.height);
+                    if (window.get_monitor() !== hit.monitor)
+                        window.move_to_monitor(hit.monitor);
                 } else {
-                    window.move_resize_frame(true, rect.x, rect.y, rect.width, rect.height);
+                    // Fracción de la pantalla: se des-maximiza, se cambia de pantalla y se ajusta
+                    // al área de trabajo (sin paneles ni barras) de la pantalla de destino.
+                    if (window.is_maximized?.())
+                        window.unmaximize();
+                    if (window.get_monitor() !== hit.monitor)
+                        window.move_to_monitor(hit.monitor);
+                    const area = window.get_work_area_for_monitor(hit.monitor);
+                    const [fx, fy, fw, fh] = hit.frac;
+                    const x0 = area.x + Math.round(fx * area.width);
+                    const y0 = area.y + Math.round(fy * area.height);
+                    const x1 = area.x + Math.round((fx + fw) * area.width);
+                    const y1 = area.y + Math.round((fy + fh) * area.height);
+                    window.move_resize_frame(true, x0, y0, x1 - x0, y1 - y0);
                 }
-                if (window.get_monitor() !== hit.monitor)
-                    window.move_to_monitor(hit.monitor);
                 return GLib.SOURCE_REMOVE;
             });
         }
