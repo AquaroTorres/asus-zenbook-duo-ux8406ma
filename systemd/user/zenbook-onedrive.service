@@ -1,0 +1,18 @@
+[Unit]
+Description=Zenbook Duo - montaje de OneDrive con rclone en ~/OneDrive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# rclone avisa con sd_notify cuando el montaje está listo: «start» espera hasta entonces
+Type=notify
+TimeoutStartSec=30
+ExecStartPre=/usr/bin/mkdir -p %h/OneDrive
+ExecStart=/usr/bin/rclone mount onedrive: %h/OneDrive --vfs-cache-mode full --vfs-cache-max-size 10G --dir-cache-time 5m
+ExecStop=/usr/bin/fusermount3 -u %h/OneDrive
+# Limpia el punto de montaje si rclone cayó dejando «Transport endpoint is not connected»
+ExecStopPost=-/usr/bin/fusermount3 -uz %h/OneDrive
+# Sin Restart: lo enciende y apaga el botón de la extensión onedrive-mount
+
+[Install]
+WantedBy=default.target

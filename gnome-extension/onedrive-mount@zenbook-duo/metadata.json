@@ -1,0 +1,8 @@
+{
+  "uuid": "onedrive-mount@zenbook-duo",
+  "name": "Montar OneDrive",
+  "description": "Botón en Ajustes rápidos para montar y desmontar OneDrive (rclone) en ~/OneDrive.",
+  "shell-version": [
+    "50"
+  ]
+}
