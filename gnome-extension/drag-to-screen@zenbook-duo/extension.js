@@ -6,10 +6,11 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 // Al arrastrar una ventana aparece, debajo del puntero, un panel con una fila por pantalla (Arriba
-// y Abajo) y cuatro iconos por fila: pantalla entera, mitades arriba/abajo, mitades izquierda/derecha
-// y cuartos. Al soltar la ventana sobre una zona, se manda a esa pantalla y, salvo en «entera»
-// (igual que Super+Shift+flecha), se redimensiona a esa fracción del área de trabajo. El panel queda
-// unos OFFSET_PX por debajo del puntero (centrado en él), en la pantalla donde empieza el arrastre.
+// y Abajo) y cuatro iconos por fila: pantalla entera, mitades izquierda/derecha, mitades arriba/abajo
+// y cuartos. Al soltar la ventana sobre una zona, se manda a esa pantalla y, salvo en «entera»,
+// se redimensiona a esa fracción del área de trabajo. «Entera» hace dos cosas: en la otra pantalla
+// manda la ventana allí conservando su tamaño (igual que Super+Shift+flecha); en la pantalla donde
+// ya estaba la maximiza. El panel queda unos OFFSET_PX por debajo del puntero (centrado en él), en la pantalla donde empieza el arrastre.
 // Solo actúa si están ambas pantallas del notebook; los monitores externos se ignoran.
 const MOVING = [Meta.GrabOp.MOVING, Meta.GrabOp.MOVING_UNCONSTRAINED];
 const POLL_MS = 50;
@@ -74,6 +75,7 @@ export default class SoltarEnPantallaExtension extends Extension {
         // Estado previo al arrastre, para devolver la ventana a su sitio antes de cambiarla de pantalla.
         this._origRect = window.get_frame_rect();
         this._origMaximized = window.is_maximized?.() ?? false;
+        this._origMonitor = window.get_monitor();
         this._zones = [];
         this._panels = [];
         const names = monitors.length === 2
@@ -161,12 +163,16 @@ export default class SoltarEnPantallaExtension extends Extension {
         const hit = this._zoneAtPointer();
         const rect = this._origRect;
         const wasMaximized = this._origMaximized;
+        const sameMonitor = hit?.monitor === this._origMonitor;
         this._hide();
         if (hit) {
             // Se mueve fuera del callback para que el grab ya esté liberado. Primero se devuelve
             // la ventana a su posición original y luego se cambia de pantalla, como Super+Shift+flecha.
             GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                if (hit.full) {
+                if (hit.full && sameMonitor) {
+                    // «Entera» en la pantalla donde ya estaba: la maximiza
+                    window.maximize();
+                } else if (hit.full) {
                     if (wasMaximized)
                         window.maximize();
                     else
