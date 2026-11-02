@@ -1,0 +1,27 @@
+#!/bin/bash
+# Mueve la ventana activa a la otra pantalla (tecla F8)
+#
+# Uso: zenbook-move-window
+#
+# Mover ventanas solo lo puede hacer GNOME Shell, así que lo hace la extensión
+# move-window, que expone org.zenbook.Windows.MoveActive por D-Bus. Si la extensión
+# no está cargada (hay que cerrar sesión tras instalarla), avisa con una notificación.
+#
+# Con la pantalla inferior apagada (p. ej. teclado por USB) no hay a dónde mover: no hace
+# nada y no avisa.
+
+MONITOR_LOWER="eDP-2"
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+# DRM refleja el estado real del panel ("enabled"/"disabled"); es más rápido que `gdctl show`
+[[ "$(cat /sys/class/drm/card*-"$MONITOR_LOWER"/enabled 2>/dev/null | head -1)" == "enabled" ]] || exit 0
+
+if gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Windows \
+        --method org.zenbook.Windows.MoveActive > /dev/null 2>&1; then
+    exit 0
+fi
+
+echo "Mover de pantalla no disponible: la extensión move-window no está cargada" >&2
+notify-send -a "Pantallas" -i video-display-symbolic "Mover de pantalla no disponible" \
+    "Cierra sesión y vuelve a entrar para cargar la extensión move-window." 2>/dev/null
+exit 1

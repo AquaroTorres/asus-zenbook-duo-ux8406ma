@@ -3,7 +3,7 @@
 # (con el bloqueo Fn en "off" las teclas F también llegan así):
 #   pantalla inferior → zenbook-lower-screen toggle      F4 → zenbook-keyboard-backlight cycle
 #   Fn+Esc              → zenbook-fn-lock toggle       F5/F6 → zenbook-brightness down/up
-#   F9                  → zenbook-microphone toggle          F8 → zenbook-swap-screens (intercambiar pantallas)
+#   F9                  → zenbook-microphone toggle          F8 → zenbook-move-window (mover la ventana activa de pantalla)
 #
 # Uso: zenbook-hotkeys [watch|find]
 #
@@ -63,7 +63,7 @@ KEYS = {
     0x10: (["zenbook-brightness", "down"], 0.12),       # F5: bajar brillo
     0x20: (["zenbook-brightness", "up"], 0.12),         # F6: subir brillo
     0x7c: (["zenbook-microphone", "toggle"], 0.3),             # F9: silenciar/activar micrófono
-    0x9c: (["zenbook-swap-screens"], 0.8),                      # F8: intercambiar ventanas entre pantallas
+    0x9c: (["zenbook-move-window"], 0.8),                        # F8: mover la ventana activa a la otra pantalla
 }
 last = {}
 kinds = {}

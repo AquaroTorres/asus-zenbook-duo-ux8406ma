@@ -1,7 +1,7 @@
 # ASUS Zenbook Duo (UX8406MA) en Linux
 
 Un script por función para controlar el Zenbook Duo en Manjaro/Arch con GNOME
-(Wayland), más siete extensiones de GNOME Shell. Cada script es independiente y
+(Wayland), más ocho extensiones de GNOME Shell. Cada script es independiente y
 se puede usar solo.
 
 > **Aviso:** probado únicamente en un **ASUS Zenbook Duo UX8406MA** con **Manjaro** y **GNOME 50 (Wayland)**.
@@ -25,7 +25,8 @@ Detalles técnicos y decisiones de diseño: [AGENTS.md](AGENTS.md).
 | `zenbook-brightness` | Sube, baja o fija el brillo de ambas pantallas, o las sincroniza |
 | `zenbook-microphone` | Silencia o activa el micrófono y mantiene la luz de F9 sincronizada (servicio con `watch`) |
 | `zenbook-fn-lock` | Activa, desactiva, alterna o lee el bloqueo Fn del teclado |
-| `zenbook-swap-screens` | Intercambia las ventanas entre las dos pantallas (F8); no hace nada con la inferior apagada |
+| `zenbook-move-window` | Mueve la ventana activa a la otra pantalla (F8); no hace nada con la inferior apagada |
+| `zenbook-swap-screens` | Intercambia todas las ventanas entre las dos pantallas; respaldo, sin tecla asignada |
 | `zenbook-screen-rotation` | Rota las pantallas a mano o automáticamente con el acelerómetro (servicio con `auto`) |
 | `zenbook-touchscreen` | Asigna cada touchscreen a su pantalla |
 | `zenbook-bluetooth` | Enciende, apaga o alterna el Bluetooth |
@@ -43,7 +44,9 @@ Detalles técnicos y decisiones de diseño: [AGENTS.md](AGENTS.md).
 | `screen-rotation` | Botón con menú en Ajustes rápidos: rotación normal, izquierda, derecha, invertida y automática |
 | `auto-brightness` | Botón en Ajustes rápidos para activar o desactivar el brillo automático de GNOME |
 | `battery-charge-limit` | Botón en Ajustes rápidos para quitar o volver a poner el límite de carga de la batería, y cargar hasta el 100 % |
-| `swap-screens` | Mueve las ventanas entre pantallas cuando `zenbook-swap-screens` se lo pide (sin icono) |
+| `move-window` | Mueve la ventana activa a la otra pantalla cuando `zenbook-move-window` se lo pide (sin icono) |
+| `swap-screens` | Respaldo: intercambia todas las ventanas cuando `zenbook-swap-screens` se lo pide (sin icono) |
+| `onedrive-mount` | Botón "OneDrive" en Ajustes rápidos para montar o desmontar OneDrive (rclone) en `~/OneDrive` |
 | `drag-to-screen` | Al arrastrar una ventana muestra, unos 100 px debajo del puntero, cuatro disposiciones por pantalla (entera, mitades verticales, mitades horizontales, cuartos); soltarla sobre una zona la manda allí y la redimensiona |
 
 ### Servicios (`systemd/user/`)
@@ -88,7 +91,7 @@ Al final lista lo que falte. Orquesta los tres instaladores, que también se pue
 - crea `/etc/sudoers.d/zenbook-duo` (la luz del teclado necesita root);
 - instala la regla udev de hidraw y te agrega al grupo `input`;
 - instala los servicios de usuario y activa `zenbook-hotkeys`, `zenbook-screen-rotation`, `zenbook-microphone` y `zenbook-keyboard-monitor`;
-- instala y habilita las siete extensiones.
+- instala y habilita las ocho extensiones.
 
 No instala el EDID personalizado ni toca GRUB/initramfs: eso lo hace `./install-lower-screen-edid.sh` (ver [Touchscreens](#zenbook-touchscreen)).
 
@@ -226,7 +229,7 @@ en `off`, las teclas F llegan así):
 | F4 | `zenbook-keyboard-backlight cycle` (luz del teclado) |
 | F5 / F6 | `zenbook-brightness down` / `up` (indicador con barra de brillo) |
 | F9 | `zenbook-microphone toggle` (micrófono + luz de la tecla + indicador) |
-| F8 | `zenbook-swap-screens` (intercambia las ventanas entre las dos pantallas) |
+| F8 | `zenbook-move-window` (mueve la ventana activa a la otra pantalla) |
 | Fn+Esc | `zenbook-fn-lock toggle` (verificado solo por USB) |
 
 F4, F5, F6, F8 y F9 funcionan solo con el bloqueo Fn en `off` (`zenbook-fn-lock off`); con él en
@@ -305,17 +308,26 @@ cambia por otro medio (GNOME, Discord…); corre como servicio de usuario `zenbo
 El teclado no recuerda la luz: `zenbook-hotkeys` la reenvía al detectarlo
 (`sync --force`). La luz se envía como root con `sudo -n zenbook-microphone _led on|off`.
 
-### `zenbook-swap-screens`: intercambiar pantallas
+### `zenbook-move-window`: mover la ventana activa de pantalla
+```
+zenbook-move-window
+```
+Mueve la ventana activa a la otra pantalla: de la superior a la inferior y al revés (tecla F8, icono
+del cuadrado con flechas arriba y abajo). Mover ventanas solo lo puede hacer GNOME Shell, así que lo
+hace la extensión `move-window`, que expone `org.zenbook.Windows.MoveActive` por D-Bus; si no está
+cargada (hay que cerrar sesión tras instalarla), avisa con una notificación. Identifica las pantallas
+por su conector (`eDP-1` y `eDP-2`), así que un monitor externo no interfiere (si la ventana activa
+está en él, no hace nada). **Con la pantalla inferior apagada (por ejemplo, con el teclado por USB)
+no hace nada y no avisa**: no hay a dónde mover.
+
+### `zenbook-swap-screens`: intercambiar pantallas (respaldo)
 ```
 zenbook-swap-screens
 ```
-Intercambia las ventanas de la pantalla superior con las de la inferior (tecla F8, icono del
-cuadrado con flechas arriba y abajo). Mover ventanas solo lo puede hacer GNOME Shell, así que lo hace
-la extensión `swap-screens`, que expone `org.zenbook.Screens.Swap` por D-Bus; si no está
-cargada (hay que cerrar sesión tras instalarla), avisa con una notificación. Identifica las pantallas
-por su conector (`eDP-1` y `eDP-2`), así que un monitor externo no interfiere. **Con la pantalla
-inferior apagada (por ejemplo, con el teclado por USB) no hace nada y no avisa**: no hay nada que
-intercambiar.
+Intercambia las ventanas de la pantalla superior con las de la inferior. Fue la función de F8 hasta
+el 2026-11-02; se conserva por si se quiere usar de nuevo, pero **no tiene tecla asignada**
+(para volver a ella, apuntar el código `0x9c` de `zenbook-hotkeys` a este script). Lo hace la
+extensión `swap-screens` (`org.zenbook.Screens.Swap`). Con la pantalla inferior apagada no hace nada.
 
 ### `zenbook-fn-lock`: bloqueo Fn del teclado
 ```
@@ -351,11 +363,13 @@ Para GNOME Shell 50. Se instalan en `~/.local/share/gnome-shell/extensions/`.
 |---|---|---|
 | `on-screen-display@zenbook-duo` | Indicador inferior (como el de volumen) | Sin icono. Muestra el indicador de GNOME cuando los scripts cambian la **luz del teclado** (F4) o el **brillo** (F5/F6), con barra de nivel, o el **micrófono** (F9), el **bloqueo Fn** y la **pantalla inferior**, con icono y texto. El texto es fijo ("Luz del teclado", "Brillo", "Micrófono", "Bloqueo Fn") y el estado lo da el icono o la barra, como en el volumen; la pantalla muestra "Pantalla inferior: encendida" o "apagada", con el icono atenuado cuando está apagada, igual que los iconos de mute. Expone `org.zenbook.Osd` por D-Bus; sin ella el micrófono, el bloqueo Fn y la pantalla usan una notificación normal y el resto no avisa. |
 | `lower-screen@zenbook-duo` | Ajustes rápidos | Botón "Pantalla inferior" para encender o apagar la pantalla inferior (subtítulo Encendida/Apagada). |
-| `swap-screens@zenbook-duo` | Sin icono | Intercambia las ventanas entre las dos pantallas con F8. Expone `org.zenbook.Screens.Swap` por D-Bus; lo llama el script `zenbook-swap-screens`. |
+| `move-window@zenbook-duo` | Sin icono | Mueve la ventana activa a la otra pantalla con F8. Expone `org.zenbook.Windows.MoveActive` por D-Bus; lo llama el script `zenbook-move-window`. |
+| `swap-screens@zenbook-duo` | Sin icono | Respaldo, sin tecla asignada: intercambia todas las ventanas entre las dos pantallas. Expone `org.zenbook.Screens.Swap` por D-Bus; lo llama el script `zenbook-swap-screens`. |
 | `drag-to-screen@zenbook-duo` | Debajo del puntero, mientras se arrastra una ventana | Sin icono permanente. Al arrastrar una ventana por su barra de título aparece, **unos 100 px debajo del puntero** y centrado en él, un panel con una fila por pantalla (**Arriba** y **Abajo**) y cuatro iconos por fila: **entera**, **mitades verticales** (izquierda/derecha), **mitades horizontales** (superior/inferior) y **cuartos**. Si no cabe debajo (cerca del borde inferior) aparece por encima, y siempre queda dentro de la pantalla; soltarla sobre «entera» la manda a esa pantalla, como `Super+Shift+flecha`, conservando la posición que tenía antes de arrastrar (o maximizada si lo estaba); sobre cualquier otra zona la des-maximiza, la manda a esa pantalla y la ajusta a esa mitad o cuarto del área de trabajo. Solo actúa si están ambas pantallas del notebook; ignora los monitores externos. |
 | `auto-brightness@zenbook-duo` | Ajustes rápidos | Botón que activa o desactiva el brillo automático de GNOME (`ambient-enabled`). Se actualiza si lo cambias desde Configuración. |
 | `battery-charge-limit@zenbook-duo` | Ajustes rápidos | Botón "Carga completa": marcado = **sin límite** (la batería carga hasta el 100 %); desmarcado = vuelve el límite de carga (el subtítulo muestra el porcentaje, p. ej. «Límite 80 %»). Usa el límite de UPower, el mismo de Configuración → Energía, por D-Bus: sin root ni contraseña. No aparece si el equipo no tiene batería con límite de carga. |
 | `screen-rotation@zenbook-duo` | Ajustes rápidos | Botón con menú: normal, izquierda, derecha, invertida y rotación automática. |
+| `onedrive-mount@zenbook-duo` | Ajustes rápidos | Botón "OneDrive" (subtítulo Montado/Desmontado/Montando…): marcado = `~/OneDrive` montado con rclone. Arranca y detiene el servicio `zenbook-onedrive` con `systemctl --user`; el estado sale de `/proc/self/mountinfo` (se revisa cada 3 s, así que refleja también un montaje hecho a mano). Si falla, muestra una notificación con el motivo. Requiere `rclone` con un remote llamado `onedrive`. |
 
 `lower-screen` y `screen-rotation` llaman a `/usr/local/bin/zenbook-lower-screen` y
 `zenbook-screen-rotation`. No hay iconos de la luz del teclado ni del bloqueo Fn en la barra superior:
@@ -368,6 +382,7 @@ sus avisos son el indicador inferior de `on-screen-display`.
 | `zenbook-hotkeys` | usuario | activo | `zenbook-hotkeys watch` |
 | `zenbook-screen-rotation` | usuario | activo | `zenbook-screen-rotation auto` |
 | `zenbook-microphone` | usuario | activo | `zenbook-microphone watch` |
+| `zenbook-onedrive` | usuario | **desactivado** (lo enciende y apaga el botón de `onedrive-mount`) | `rclone mount onedrive: ~/OneDrive --vfs-cache-mode full --vfs-cache-max-size 10G`; `Type=notify`, sin reinicio automático |
 | `zenbook-keyboard-monitor` | usuario | activo | `zenbook-keyboard-monitor watch`: apaga la pantalla inferior al conectar el teclado por USB, la enciende al desconectarlo y reaplica el bloqueo Fn y la luz de F9 |
 
 Logs: `journalctl --user -u zenbook-hotkeys -f`.
@@ -376,7 +391,7 @@ Logs: `journalctl --user -u zenbook-hotkeys -f`.
 
 ```
 scripts/            un script por función (zenbook-*)
-gnome-extension/    las siete extensiones
+gnome-extension/    las ocho extensiones
 systemd/user/       servicios de usuario
 udev/               regla para leer hidraw sin root
 zenbook-duo.conf    configuración (→ /etc/zenbook-duo.conf)

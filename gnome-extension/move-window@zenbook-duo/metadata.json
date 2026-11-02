@@ -1,0 +1,8 @@
+{
+  "uuid": "move-window@zenbook-duo",
+  "name": "Mover ventana de pantalla",
+  "description": "Mueve la ventana activa a la otra pantalla del Zenbook Duo (tecla F8, vía el script zenbook-move-window y D-Bus).",
+  "shell-version": [
+    "50"
+  ]
+}
