@@ -78,7 +78,7 @@ case "${1:-status}" in
         # conserva el brillo que tenía (un panel que llega al tope o al mínimo se queda
         # ahí y el otro sigue moviéndose).
         step_pct="${2:-$BRIGHTNESS_STEP}"
-        sum_frac=0; n=0
+        sum_frac=0; n=0; fracs=()
         for dev in "$BACKLIGHT_UPPER" "$BACKLIGHT_LOWER"; do
             [[ -d "$dev" ]] || continue
             max=$(cat "$dev/max_brightness"); cur=$(cat "$dev/brightness")
@@ -87,11 +87,15 @@ case "${1:-status}" in
             (( new > max )) && new=$max
             (( new < BRIGHTNESS_MIN )) && new=$BRIGHTNESS_MIN
             _logind_set "$dev" "$new"
-            sum_frac=$(awk "BEGIN { printf \"%.4f\", $sum_frac + $new / $max }"); n=$(( n + 1 ))
+            frac=$(awk "BEGIN { printf \"%.4f\", $new / $max }")
+            fracs+=("$frac"); sum_frac=$(awk "BEGIN { printf \"%.4f\", $sum_frac + $frac }"); n=$(( n + 1 ))
             echo "$(basename "$dev") brillo → ${new}/${max} ($(_pct "$new" "$max"))"
         done
-        # El indicador muestra el promedio de las dos pantallas
-        _osd Show display-brightness-symbolic "Brillo" "$(awk "BEGIN { printf \"%.3f\", $sum_frac / $n }")"
+        # Cada pantalla muestra su propio nivel. Si el Shell aún no tiene ShowLevels (una extensión
+        # ya cargada no se recarga hasta reiniciar sesión), se muestra el promedio en ambas.
+        levels=$(IFS=,; echo "[${fracs[*]}]")
+        _osd ShowLevels display-brightness-symbolic "Brillo" "$levels" ||
+            _osd Show display-brightness-symbolic "Brillo" "$(awk "BEGIN { printf \"%.3f\", $sum_frac / $n }")"
         ;;
     sync)
         val=$(cat "$BACKLIGHT_UPPER/brightness")

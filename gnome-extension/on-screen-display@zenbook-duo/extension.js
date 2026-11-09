@@ -11,6 +11,9 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 //   gdbus call ... --method org.zenbook.Osd.ShowText icono "texto"   # sin barra
 //   gdbus call ... --method org.zenbook.Osd.ShowState icono "texto" true|false
 //                                         # sin barra; con false el icono sale atenuado
+//   gdbus call ... --method org.zenbook.Osd.ShowLevels icono "texto" "[0.35,0.14]"
+//                                         # con barra, un nivel 0..1 por pantalla integrada
+//                                         # (superior, inferior); cada una muestra el suyo
 //
 // "icono" puede ser una lista separada por comas ("preferido,respaldo"): se usa el
 // primero que exista en el tema.
@@ -22,6 +25,11 @@ const IFACE = `
       <arg type="s" direction="in" name="icon"/>
       <arg type="s" direction="in" name="label"/>
       <arg type="d" direction="in" name="level"/>
+    </method>
+    <method name="ShowLevels">
+      <arg type="s" direction="in" name="icon"/>
+      <arg type="s" direction="in" name="label"/>
+      <arg type="ad" direction="in" name="levels"/>
     </method>
     <method name="ShowText">
       <arg type="s" direction="in" name="icon"/>
@@ -82,6 +90,28 @@ class OsdService {
     // que respeta ese rango: por eso el nivel se normaliza siempre a 0..1.
     Show(icon, label, level) {
         this._show(icon, label, Math.max(0, Math.min(1, level)), 1, false);
+    }
+
+    // Un nivel por pantalla integrada: levels[0] = eDP-1 (superior), levels[1] = eDP-2 (inferior).
+    // Las demás pantallas (monitores externos) muestran el promedio.
+    ShowLevels(icon, label, levels) {
+        const clamp = v => Math.max(0, Math.min(1, v));
+        const mm = global.backend.get_monitor_manager();
+        const perMonitor = {};
+        ['eDP-1', 'eDP-2'].forEach((connector, i) => {
+            const index = mm.get_monitor_for_connector(connector);
+            if (index >= 0 && levels[i] !== undefined)
+                perMonitor[index] = {level: clamp(levels[i]), maxLevel: 1};
+        });
+        if (Object.keys(perMonitor).length === 0)
+            return;
+        const avg = clamp(levels.reduce((a, b) => a + b, 0) / levels.length);
+        for (let i = 0; i < Main.osdWindowManager._osdWindows.length; i++) {
+            if (!perMonitor[i])
+                perMonitor[i] = {level: avg, maxLevel: 1};
+        }
+        this._dim = false;
+        Main.osdWindowManager.show(this._icon(icon), label || null, perMonitor);
     }
 
     ShowText(icon, label) {
