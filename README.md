@@ -1,7 +1,7 @@
 # ASUS Zenbook Duo (UX8406MA) en Linux
 
 Un script por función para controlar el Zenbook Duo en Manjaro/Arch con GNOME
-(Wayland), más ocho extensiones de GNOME Shell. Cada script es independiente y
+(Wayland), más diez extensiones de GNOME Shell. Cada script es independiente y
 se puede usar solo.
 
 > **Aviso:** probado únicamente en un **ASUS Zenbook Duo UX8406MA** con **Manjaro** y **GNOME 50 (Wayland)**.
@@ -91,7 +91,7 @@ Al final lista lo que falte. Orquesta los tres instaladores, que también se pue
 - crea `/etc/sudoers.d/zenbook-duo` (la luz del teclado necesita root);
 - instala la regla udev de hidraw y te agrega al grupo `input`;
 - instala los servicios de usuario y activa `zenbook-hotkeys`, `zenbook-screen-rotation`, `zenbook-microphone` y `zenbook-keyboard-monitor`;
-- instala y habilita las ocho extensiones.
+- instala y habilita las diez extensiones.
 
 No instala el EDID personalizado ni toca GRUB/initramfs: eso lo hace `./install-lower-screen-edid.sh` (ver [Touchscreens](#zenbook-touchscreen)).
 
@@ -366,6 +366,7 @@ Para GNOME Shell 50. Se instalan en `~/.local/share/gnome-shell/extensions/`.
 | `move-window@zenbook-duo` | Sin icono | Mueve la ventana activa a la otra pantalla con F8. Expone `org.zenbook.Windows.MoveActive` por D-Bus; lo llama el script `zenbook-move-window`. |
 | `swap-screens@zenbook-duo` | Sin icono | Respaldo, sin tecla asignada: intercambia todas las ventanas entre las dos pantallas. Expone `org.zenbook.Screens.Swap` por D-Bus; lo llama el script `zenbook-swap-screens`. |
 | `drag-to-screen@zenbook-duo` | Debajo del puntero, mientras se arrastra una ventana | Sin icono permanente. Al arrastrar una ventana por su barra de título aparece, **unos 100 px debajo del puntero** y centrado en él, un panel con una fila por pantalla (**Arriba** y **Abajo**) y cuatro iconos por fila: **entera**, **mitades verticales** (izquierda/derecha), **mitades horizontales** (superior/inferior) y **cuartos**. Si no cabe debajo (cerca del borde inferior) aparece por encima, y siempre queda dentro de la pantalla; soltarla sobre «entera» de la **otra** pantalla la manda allí, como `Super+Shift+flecha`, conservando la posición que tenía antes de arrastrar (o maximizada si lo estaba), y sobre «entera» de la pantalla **donde ya estaba** la maximiza; sobre cualquier otra zona la des-maximiza, la manda a esa pantalla y la ajusta a esa mitad o cuarto del área de trabajo. Solo actúa si están ambas pantallas del notebook; ignora los monitores externos. |
+| `monitor-brightness@zenbook-duo` | Ajustes rápidos | Dos sliders de brillo, **Superior** e **Inferior**, independientes, en lugar del slider único de GNOME (que se oculta). Escriben directo en el backlight de cada pantalla por logind, sin pasar por Mutter. El de la pantalla inferior se oculta cuando esa pantalla está apagada, y ambos reflejan los cambios de F5/F6. Nació de un fallo de Mutter 50.5 en el que el slider de eDP-2 movía eDP-1 (ver el comentario en `extension.js` y `AGENTS.md`). |
 | `auto-brightness@zenbook-duo` | Ajustes rápidos | Botón que activa o desactiva el brillo automático de GNOME (`ambient-enabled`). Se actualiza si lo cambias desde Configuración. |
 | `battery-charge-limit@zenbook-duo` | Ajustes rápidos | Botón "Carga completa": marcado = **sin límite** (la batería carga hasta el 100 %); desmarcado = vuelve el límite de carga (el subtítulo muestra el porcentaje, p. ej. «Límite 80 %»). Usa el límite de UPower, el mismo de Configuración → Energía, por D-Bus: sin root ni contraseña. No aparece si el equipo no tiene batería con límite de carga. |
 | `screen-rotation@zenbook-duo` | Ajustes rápidos | Botón con menú: normal, izquierda, derecha, invertida y rotación automática. |
@@ -391,7 +392,7 @@ Logs: `journalctl --user -u zenbook-hotkeys -f`.
 
 ```
 scripts/            un script por función (zenbook-*)
-gnome-extension/    las ocho extensiones
+gnome-extension/    las diez extensiones
 systemd/user/       servicios de usuario
 udev/               regla para leer hidraw sin root
 zenbook-duo.conf    configuración (→ /etc/zenbook-duo.conf)

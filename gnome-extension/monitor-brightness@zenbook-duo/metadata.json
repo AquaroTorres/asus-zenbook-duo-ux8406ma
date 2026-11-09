@@ -1,0 +1,6 @@
+{
+  "uuid": "monitor-brightness@zenbook-duo",
+  "name": "Brillo por pantalla",
+  "description": "Un slider de brillo en Ajustes rápidos para cada pantalla integrada (superior e inferior), independientes entre sí. Reemplaza al slider único de GNOME, que mueve ambas.",
+  "shell-version": ["50"]
+}

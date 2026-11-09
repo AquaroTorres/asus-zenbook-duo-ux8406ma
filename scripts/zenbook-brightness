@@ -74,21 +74,24 @@ case "${1:-status}" in
         _set "$2" "$3"
         ;;
     up|down)
-        # Sube o baja ambas pantallas en pasos de % del máximo, partiendo de eDP-1
+        # Sube o baja cada pantalla el mismo % de SU máximo, sin igualarlas: cada una
+        # conserva el brillo que tenía (un panel que llega al tope o al mínimo se queda
+        # ahí y el otro sigue moviéndose).
         step_pct="${2:-$BRIGHTNESS_STEP}"
-        max=$(cat "$BACKLIGHT_UPPER/max_brightness")
-        cur=$(cat "$BACKLIGHT_UPPER/brightness")
-        delta=$(( max * step_pct / 100 )); (( delta < 1 )) && delta=1
-        [[ "$1" == "up" ]] && new=$(( cur + delta )) || new=$(( cur - delta ))
-        (( new > max )) && new=$max
-        (( new < BRIGHTNESS_MIN )) && new=$BRIGHTNESS_MIN
-        _logind_set "$BACKLIGHT_UPPER" "$new"
-        if [[ -d "$BACKLIGHT_LOWER" ]]; then
-            max2=$(cat "$BACKLIGHT_LOWER/max_brightness")
-            _logind_set "$BACKLIGHT_LOWER" $(( new * max2 / max ))
-        fi
-        echo "Brillo → ${new}/${max} ($(_pct "$new" "$max"))"
-        _osd Show display-brightness-symbolic "Brillo" "$(awk "BEGIN { printf \"%.3f\", $new / $max }")"
+        sum_frac=0; n=0
+        for dev in "$BACKLIGHT_UPPER" "$BACKLIGHT_LOWER"; do
+            [[ -d "$dev" ]] || continue
+            max=$(cat "$dev/max_brightness"); cur=$(cat "$dev/brightness")
+            delta=$(( max * step_pct / 100 )); (( delta < 1 )) && delta=1
+            [[ "$1" == "up" ]] && new=$(( cur + delta )) || new=$(( cur - delta ))
+            (( new > max )) && new=$max
+            (( new < BRIGHTNESS_MIN )) && new=$BRIGHTNESS_MIN
+            _logind_set "$dev" "$new"
+            sum_frac=$(awk "BEGIN { printf \"%.4f\", $sum_frac + $new / $max }"); n=$(( n + 1 ))
+            echo "$(basename "$dev") brillo → ${new}/${max} ($(_pct "$new" "$max"))"
+        done
+        # El indicador muestra el promedio de las dos pantallas
+        _osd Show display-brightness-symbolic "Brillo" "$(awk "BEGIN { printf \"%.3f\", $sum_frac / $n }")"
         ;;
     sync)
         val=$(cat "$BACKLIGHT_UPPER/brightness")
@@ -109,7 +112,7 @@ case "${1:-status}" in
     *)
         echo "Uso: zenbook-brightness [status|set <1|2> <valor>|up [%]|down [%]|sync|watch]"
         echo "  status          Brillo actual de ambas pantallas"
-        echo "  up|down [%]     Sube o baja ambas pantallas (por defecto BRIGHTNESS_STEP %)"
+        echo "  up|down [%]     Sube o baja cada pantalla ese % de su máximo, sin igualarlas (por defecto BRIGHTNESS_STEP %)"
         echo "  set 1 <valor>   Brillo de eDP-1 (4-400)"
         echo "  set 2 <valor>   Brillo de eDP-2 (4-400)"
         echo "  sync            Iguala eDP-2 al brillo de eDP-1"
