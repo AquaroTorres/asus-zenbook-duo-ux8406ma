@@ -1,0 +1,8 @@
+{
+  "uuid": "bluetooth-battery@zenbook-duo",
+  "name": "Batería de dispositivos Bluetooth",
+  "description": "Lista en Ajustes rápidos los dispositivos Bluetooth conectados con su nivel de batería (nombre, barra y porcentaje).",
+  "shell-version": [
+    "50"
+  ]
+}
