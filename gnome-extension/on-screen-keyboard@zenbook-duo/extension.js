@@ -8,53 +8,69 @@ import {QuickToggle, SystemIndicator} from 'resource:///org/gnome/shell/ui/quick
 
 // Teclado táctil propio, fijo en la parte inferior de la pantalla inferior (eDP-2; si no existe,
 // en la principal). Nació porque el teclado en pantalla de GNOME (2026-11-12) no detectaba el toque
-// en la pantalla inferior (solo el lápiz) y sale en la pantalla donde se toca el campo de texto.
+// en la pantalla inferior (la causa real era el mapeo del touchscreen, ya corregido en
+// zenbook-touchscreen) y sale en la pantalla donde se toca el campo de texto.
 //
-// Las teclas se envían como keysyms (Unicode) por un dispositivo virtual de teclado, igual que el
-// teclado de GNOME (keyboard.js); Mutter busca la tecla y los modificadores que necesita en la
-// distribución activa (aquí latam). Por eso la disposición dibujada solo es visual.
-// Ninguna tecla toma el foco (can_focus: false): la ventana activa sigue recibiendo el texto.
-// Shift, Ctrl, Alt y Super son de un solo uso (se sueltan tras la siguiente tecla); «Mayús» es fijo.
-const HEIGHT_FRACTION = 0.38;
+// La distribución copia el teclado físico del Zenbook Duo (foto del usuario, 2026-11-12):
+// latinoamericano ISO con fila de funciones, ñ, `<` junto a Shift y flechas con Home/PgUp/PgDn/End
+// (con Fn). Las teclas se envían como keysyms (Unicode) por un dispositivo virtual de teclado, igual
+// que el teclado de GNOME (keyboard.js); Mutter busca la tecla y los modificadores que necesita en la
+// distribución activa (latam). Por eso lo dibujado es solo visual: aunque la distribución activa
+// cambie, cada tecla produce el carácter que muestra. Ninguna tecla toma el foco (can_focus: false):
+// la ventana activa sigue recibiendo el texto.
+// Shift, Ctrl, Alt, Win y Fn son de un solo uso (se sueltan tras la siguiente tecla); «Bloq Mayús» es fijo.
+const HEIGHT_FRACTION = 0.40;
+const FN_ROW_RATIO = 0.62;      // la fila de funciones es más baja que las demás
 const GAP = 6;
 const PAD = 8;
 const REPEAT_DELAY_MS = 400;
 const REPEAT_MS = 60;
 
 const K = n => Clutter[`KEY_${n}`];
-// Tecla con carácter (y su variante con Shift, que se dibuja pequeña arriba a la izquierda)
+// Tecla con carácter (y su variante con Shift, que se dibuja pequeña arriba a la izquierda).
+// `kv`/`kvShift`: keysym explícito (teclas muertas), si no se usa el del carácter.
 const ch = (c, shift = c.toUpperCase(), w = 1, extra = {}) => ({char: c, shift, w, ...extra});
 // Tecla especial: `tag` es el rótulo pequeño de la esquina, `main` el símbolo del centro
 const sp = (tag, keyval, w, extra = {}) => ({tag, sym: keyval, w, ...extra});
 const mod = (tag, name, w, extra = {}) => ({tag, mod: name, w, ...extra});
+const fk = n => sp('', K(`F${n}`), 1, {main: `F${n}`, small: true});
 
-// Distribución copiada de la imagen «layout teclado asus» (US, 5 filas). Con Fn, la fila de
-// números pasa a F1..F12.
 const ROWS = [
-    [sp('Esc', K('Escape'), 1.1),
-        ch('1', '!', 1, {fkey: K('F1')}), ch('2', '@', 1, {fkey: K('F2')}), ch('3', '#', 1, {fkey: K('F3')}),
-        ch('4', '$', 1, {fkey: K('F4')}), ch('5', '%', 1, {fkey: K('F5')}), ch('6', '^', 1, {fkey: K('F6')}),
-        ch('7', '&', 1, {fkey: K('F7')}), ch('8', '*', 1, {fkey: K('F8')}), ch('9', '(', 1, {fkey: K('F9')}),
-        ch('0', ')', 1, {fkey: K('F10')}), ch('-', '_', 1, {fkey: K('F11')}), ch('=', '+', 1, {fkey: K('F12')}),
-        sp('Backspace', K('BackSpace'), 1.9, {main: '⟵', tagRight: true, repeat: true})],
-    [sp('Tab', K('Tab'), 1.6, {main: '⇥'}),
+    {fn: true, keys: [
+        sp('', K('Escape'), 1, {main: 'Esc', small: true}),
+        ...Array.from({length: 12}, (_, i) => fk(i + 1)),
+        {main: '⌨▾', action: 'hide', w: 1, small: true},   // sin equivalente físico: oculta el teclado
+        sp('', K('Print'), 1, {main: 'PrtSc', small: true}),
+        sp('', K('Delete'), 1, {main: 'Supr', small: true, repeat: true})]},
+    {keys: [
+        ch('|', '°'), ch('1', '!'), ch('2', '"'), ch('3', '#'), ch('4', '$'), ch('5', '%'), ch('6', '&'),
+        ch('7', '/'), ch('8', '('), ch('9', ')'), ch('0', '='), ch("'", '?'), ch('¿', '¡'),
+        sp('', K('BackSpace'), 2, {main: '⟵', tag: 'Retroceso', tagRight: true, repeat: true})]},
+    {keys: [
+        sp('', K('Tab'), 1.5, {main: '⇥', tag: 'Tab'}),
         ch('q'), ch('w'), ch('e'), ch('r'), ch('t'), ch('y'), ch('u'), ch('i'), ch('o'), ch('p'),
-        ch('[', '{'), ch(']', '}'), ch('\\', '|', 1.4)],
-    [mod('Caps Lock', 'caps', 1.9),
-        ch('a'), ch('s'), ch('d'), ch('f'), ch('g'), ch('h'), ch('j'), ch('k'), ch('l'),
-        ch(';', ':'), ch("'", '"'),
-        sp('Enter', K('Return'), 2.1, {main: '↵', tagRight: true})],
-    [mod('Shift ⇧', 'shift', 2.4),
+        ch('´', '¨', 1, {kv: K('dead_acute'), kvShift: K('dead_diaeresis')}),
+        ch('+', '*'), ch('}', ']', 1.5)]},
+    {keys: [
+        mod('Bloq Mayús', 'caps', 1.9),
+        ch('a'), ch('s'), ch('d'), ch('f'), ch('g'), ch('h'), ch('j'), ch('k'), ch('l'), ch('ñ'),
+        ch('{', '['),
+        sp('', K('Return'), 2.1, {main: '↵', tag: 'Enter', tagRight: true})]},
+    {keys: [
+        mod('⇧', 'shift', 1.2), ch('<', '>'),
         ch('z'), ch('x'), ch('c'), ch('v'), ch('b'), ch('n'), ch('m'),
-        ch(',', '<'), ch('.', '>'), ch('/', '?'),
-        sp('', K('Up'), 1, {main: '▲', repeat: true}),
-        mod('Shift ⇧', 'shift', 1.6)],
-    [mod('Ctrl', 'ctrl', 1.4), mod('Fn', 'fn', 1), mod('', 'super', 1, {main: '⊞'}), mod('Alt', 'alt', 1),
-        sp('', K('space'), 4.6, {main: '—', repeat: true}),
-        mod('Alt', 'alt', 1), mod('Ctrl', 'ctrl', 1),
-        sp('', K('Left'), 1, {main: '◀', repeat: true}), sp('', K('Down'), 1, {main: '▼', repeat: true}),
-        sp('', K('Right'), 1, {main: '▶', repeat: true}),
-        {main: '⌨▾', action: 'hide', w: 1}],
+        ch(',', ';'), ch('.', ':'), ch('-', '_'),
+        mod('Shift ⇧', 'shift', 2.8)]},
+    {keys: [
+        mod('Ctrl', 'ctrl', 1.3), mod('Fn', 'fn', 1), mod('', 'super', 1, {main: '⊞'}), mod('Alt', 'alt', 1),
+        sp('', K('space'), 5.7, {main: '—', repeat: true}),
+        mod('Alt Gr', 'alt', 1), mod('Ctrl', 'ctrl', 1),
+        sp('', K('Left'), 1, {main: '◀', fnMain: 'Inicio', fnSym: K('Home'), repeat: true}),
+        {w: 1, stack: [
+            sp('', K('Up'), 1, {main: '▲', fnMain: 'Re Pág', fnSym: K('Page_Up'), repeat: true}),
+            sp('', K('Down'), 1, {main: '▼', fnMain: 'Av Pág', fnSym: K('Page_Down'), repeat: true})]},
+        sp('', K('Right'), 1, {main: '▶', fnMain: 'Fin', fnSym: K('End'), repeat: true}),
+        ]},
 ];
 
 const MODIFIER_KEYVAL = {
@@ -62,14 +78,14 @@ const MODIFIER_KEYVAL = {
 };
 
 const isLetter = c => c.toLowerCase() !== c.toUpperCase();
+const NO_STATE = () => ({shift: false, caps: false, ctrl: false, alt: false, super: false, fn: false});
 
 class Keyboard {
     constructor() {
         const seat = global.stage.context.get_backend().get_default_seat();
         this._device = seat.create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE);
-        this._state = {shift: false, caps: false, ctrl: false, alt: false, super: false, fn: false};
-        this._labels = [];     // {actor, def}
-        this._buttons = {};    // modificadores, para marcarlos
+        this._state = NO_STATE();
+        this._labels = [];     // {btn, def, main, sub}
         this._repeatId = 0;
         this._box = null;
         this._monitorsId = Main.layoutManager.connect('monitors-changed', () => this._place());
@@ -95,8 +111,7 @@ class Keyboard {
         this._box.destroy();
         this._box = null;
         this._labels = [];
-        this._buttons = {};
-        this._state = {shift: false, caps: false, ctrl: false, alt: false, super: false, fn: false};
+        this._state = NO_STATE();
     }
 
     destroy() {
@@ -127,15 +142,27 @@ class Keyboard {
     _build(width, height) {
         this._box.destroy_all_children();
         this._labels = [];
-        this._buttons = {};
-        const rowH = Math.floor((height - 2 * PAD - GAP * (ROWS.length - 1)) / ROWS.length);
-        const fontPx = Math.max(12, Math.round(rowH * 0.3));
-        for (const keys of ROWS) {
+        const units = ROWS.reduce((s, r) => s + (r.fn ? FN_ROW_RATIO : 1), 0);
+        const unitH = (height - 2 * PAD - GAP * (ROWS.length - 1)) / units;
+        const fontPx = Math.max(12, Math.round(unitH * 0.3));
+        for (const rowDef of ROWS) {
+            const rowH = Math.floor(unitH * (rowDef.fn ? FN_ROW_RATIO : 1));
+            const keys = rowDef.keys;
             const row = new St.BoxLayout({style: `spacing: ${GAP}px;`, x_expand: true});
             const total = keys.reduce((s, k) => s + k.w, 0);
             const avail = width - 2 * PAD - GAP * (keys.length - 1);
-            for (const def of keys)
-                row.add_child(this._makeKey(def, Math.floor(avail * def.w / total), rowH, fontPx));
+            for (const def of keys) {
+                const w = Math.floor(avail * def.w / total);
+                if (def.stack) {
+                    // Dos teclas apiladas (▲ / ▼), cada una de media altura
+                    const col = new St.BoxLayout({vertical: true, style: `spacing: ${GAP}px;`});
+                    const half = Math.floor((rowH - GAP) / 2);
+                    def.stack.forEach(d => col.add_child(this._makeKey(d, w, half, Math.round(fontPx * 0.75))));
+                    row.add_child(col);
+                } else {
+                    row.add_child(this._makeKey(def, w, rowH, def.small ? Math.round(fontPx * 0.8) : fontPx));
+                }
+            }
             this._box.add_child(row);
         }
         this._refresh();
@@ -162,8 +189,6 @@ class Keyboard {
         content.add_child(main);
         btn.set_child(content);
         this._labels.push({btn, def, main, sub});
-        if (def.mod)
-            this._buttons[def.mod] = [...(this._buttons[def.mod] ?? []), btn];
 
         let pressed = false;
         const down = () => {
@@ -199,23 +224,18 @@ class Keyboard {
         return btn;
     }
 
-    // Texto de cada tecla según Shift/Mayús/Fn y marca de los modificadores activos
+    // Texto de cada tecla según Shift/Bloq Mayús/Fn y marca de los modificadores activos
     _refresh() {
         const {shift, caps, fn} = this._state;
         for (const {btn, def, main, sub} of this._labels) {
             if (def.char !== undefined) {
                 const letter = isLetter(def.char);
                 const upper = letter ? (shift || caps) : shift;
-                if (fn && def.fkey) {
-                    main.text = `F${ROWS[0].findIndex(k => k === def)}`;
-                    sub.text = '';
-                } else if (letter) {
-                    main.text = upper ? def.shift : def.char;
-                    sub.text = '';
-                } else {
-                    main.text = upper ? def.shift : def.char;
-                    sub.text = upper ? def.char : def.shift;
-                }
+                main.text = upper ? def.shift : def.char;
+                sub.text = letter ? '' : (upper ? def.char : def.shift);
+            } else if (fn && def.fnSym) {
+                main.text = def.fnMain;
+                sub.text = '';
             } else {
                 main.text = def.main ?? '';
                 sub.text = def.tag ?? '';
@@ -252,7 +272,7 @@ class Keyboard {
             return;
         }
         this._send(def);
-        // Los modificadores de un solo uso se sueltan tras la tecla; «Mayús» queda fijo
+        // Los modificadores de un solo uso se sueltan tras la tecla; «Bloq Mayús» queda fijo
         for (const m of ['shift', 'ctrl', 'alt', 'super', 'fn'])
             this._state[m] = false;
         this._refresh();
@@ -263,21 +283,20 @@ class Keyboard {
         const anyMod = ctrl || alt || sup;
         let keyval;
         let realShift = false;
-        if (fn && def.fkey) {
-            keyval = def.fkey;
-            realShift = shift;
-        } else if (def.char !== undefined) {
+        if (def.char !== undefined) {
             const letter = isLetter(def.char);
             if (anyMod) {
                 // Con Ctrl/Alt/Super se manda la tecla base y el Shift real
-                keyval = Clutter.unicode_to_keysym(def.char.codePointAt(0));
+                keyval = def.kv ?? Clutter.unicode_to_keysym(def.char.codePointAt(0));
                 realShift = shift || (letter && caps);
             } else {
                 const upper = letter ? (shift || caps) : shift;
-                keyval = Clutter.unicode_to_keysym((upper ? def.shift : def.char).codePointAt(0));
+                keyval = upper
+                    ? (def.kvShift ?? Clutter.unicode_to_keysym(def.shift.codePointAt(0)))
+                    : (def.kv ?? Clutter.unicode_to_keysym(def.char.codePointAt(0)));
             }
         } else {
-            keyval = def.sym;
+            keyval = (fn && def.fnSym) ? def.fnSym : def.sym;
             realShift = shift;
         }
 
