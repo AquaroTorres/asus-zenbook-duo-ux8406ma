@@ -24,7 +24,11 @@ const HEIGHT_FRACTION = 0.56;   // tope de alto; las teclas son cuadradas, así 
 const FN_ROW_RATIO = 0.62;      // la fila de funciones es más baja que las demás
 const GAP_RATIO = 0.10;         // hueco entre teclas, como fracción del lado de una tecla (en el teclado físico ~10 %)
 const PAD = 8;
-const ROW_UNITS = 15;           // ancho de cada fila en teclas (todas las filas suman lo mismo)
+// Anchos en «pasos de tecla» (tecla + hueco), medidos sobre la foto del teclado físico: todas las
+// filas suman ROW_UNITS y las columnas de abajo quedan alineadas (< sobre Fn, Z sobre Win, X sobre Alt,
+// «,» sobre Alt Gr, «.» sobre Ctrl, «-» sobre Inicio, Shift derecho sobre △▽ + Fin).
+const ROW_UNITS = 14.75;
+const FNW = ROW_UNITS / 16;     // las 16 teclas de la fila de funciones miden lo mismo
 const REPEAT_DELAY_MS = 400;
 const REPEAT_MS = 60;
 
@@ -39,11 +43,11 @@ const sp = (tag, keyval, w, extra = {}) => ({tag, sym: keyval, w, ...extra});
 const mod = (tag, name, w, extra = {}) => ({tag, mod: name, w, ...extra});
 // Tecla de la fila de funciones. Sin Fn hace lo mismo que la física (multimedia o comando del
 // proyecto, igual que zenbook-hotkeys); con Fn manda F1..F12.
-const fk = (n, icons, extra = {}) => ({fnum: n, tag: `F${n}`, tagRight: true, icons, small: true, w: 1, ...extra});
+const fk = (n, icons, extra = {}) => ({fnum: n, tag: `F${n}`, tagRight: true, icons, small: true, w: FNW, ...extra});
 
 const ROWS = [
     {fn: true, keys: [
-        sp('', K('Escape'), 1, {main: 'Esc', small: true}),
+        sp('', K('Escape'), FNW, {main: 'Esc', small: true}),
         fk(1, ['audio-volume-muted-symbolic'], {media: K('AudioMute')}),
         fk(2, ['audio-volume-low-symbolic'], {media: K('AudioLowerVolume'), repeat: true}),
         fk(3, ['audio-volume-high-symbolic'], {media: K('AudioRaiseVolume'), repeat: true}),
@@ -57,37 +61,37 @@ const ROWS = [
         fk(11, ['face-smile-symbolic'], {combo: ['ctrl', '.']}),
         fk(12, ['applications-system-symbolic'], {}),
         // Tecla de pantalla inferior: la misma acción que la física (zenbook-hotkeys, código 0x6a)
-        {icons: ['video-display-symbolic', 'preferences-desktop-display-symbolic'], cmd: ['zenbook-lower-screen', 'toggle'], w: 1, small: true},
-        sp('', K('Print'), 1, {main: 'Prt Sc', small: true}),
-        sp('Ins', K('Delete'), 1, {main: 'Delete', small: true, repeat: true, tagRight: true, fnSym: K('Insert'), fnMain: 'Ins'})]},
+        {icons: ['video-display-symbolic', 'preferences-desktop-display-symbolic'], cmd: ['zenbook-lower-screen', 'toggle'], w: FNW, small: true},
+        sp('', K('Print'), FNW, {main: 'Prt Sc', small: true}),
+        sp('Ins', K('Delete'), FNW, {main: 'Delete', small: true, repeat: true, tagRight: true, fnSym: K('Insert'), fnMain: 'Ins'})]},
     {keys: [
-        ch('|', '°', 1, {alt: '¬'}), ch('1', '!'), ch('2', '"'), ch('3', '#'), ch('4', '$'), ch('5', '%'), ch('6', '&'),
+        ch('|', '°', 1.14, {alt: '¬'}), ch('1', '!'), ch('2', '"'), ch('3', '#'), ch('4', '$'), ch('5', '%'), ch('6', '&'),
         ch('7', '/'), ch('8', '('), ch('9', ')'), ch('0', '='), ch("'", '?', 1, {alt: '\\'}), ch('¿', '¡'),
-        sp('', K('BackSpace'), 2, {main: '⟵', repeat: true})]},
+        sp('', K('BackSpace'), 1.61, {main: '⟵', repeat: true})]},
     {keys: [
-        sp('', K('Tab'), 1.5, {main: '⇆'}),
+        sp('', K('Tab'), 1.64, {main: '⇆'}),
         ch('q', 'Q', 1, {alt: '@'}), ch('w'), ch('e'), ch('r'), ch('t'), ch('y'), ch('u'), ch('i'), ch('o'), ch('p'),
         ch('´', '¨', 1, {kv: K('dead_acute'), kvShift: K('dead_diaeresis')}),
-        ch('+', '*', 1, {alt: '~'}), ch('}', ']', 1.5, {alt: '`'})]},
+        ch('+', '*', 1, {alt: '~'}), ch('}', ']', 1.11, {alt: '`'})]},
     {keys: [
-        mod('Bloq mayús', 'caps', 1.9),
+        mod('Bloq mayús', 'caps', 1.88),
         ch('a'), ch('s'), ch('d'), ch('f'), ch('g'), ch('h'), ch('j'), ch('k'), ch('l'), ch('ñ'),
         ch('{', '[', 1, {alt: '^'}),
-        sp('', K('Return'), 2.1, {main: '↵'})]},
+        sp('', K('Return'), 1.87, {main: '↵'})]},
     {keys: [
-        mod('', 'shift', 1.2, {main: '⇧'}), ch('<', '>'),
+        mod('', 'shift', 1.41, {main: '⇧'}), ch('<', '>'),
         ch('z'), ch('x'), ch('c'), ch('v'), ch('b'), ch('n'), ch('m'),
         ch(',', ';'), ch('.', ':'), ch('-', '_'),
-        mod('', 'shift', 2.8, {main: '⇧'})]},
+        mod('', 'shift', 2.34, {main: '⇧'})]},
     {keys: [
-        mod('Ctrl', 'ctrl', 1.3), mod('Fn+Esc', 'fn', 1, {main: 'Fn'}), mod('', 'super', 1, {main: '⊞'}), mod('Alt', 'alt', 1),
-        sp('', K('space'), 5.7, {repeat: true}),
+        mod('Ctrl', 'ctrl', 1.41), mod('Fn+Esc', 'fn', 1, {main: 'Fn'}), mod('', 'super', 1, {main: '⊞'}), mod('Alt', 'alt', 1),
+        sp('', K('space'), 5, {repeat: true}),
         mod('Alt Gr', 'altgr', 1), mod('Ctrl', 'ctrl', 1),
         {w: 1, bottom: true, keys: [sp('', K('Left'), 1, {main: '◁', tag: 'Inicio', fnMain: 'Inicio', fnSym: K('Home'), repeat: true})]},
-        {w: 1, stack: [
+        {w: 1.2, stack: [
             sp('', K('Up'), 1, {main: '△ Re pág', fnMain: 'Re pág', fnSym: K('Page_Up'), repeat: true}),
             sp('', K('Down'), 1, {main: '▽ Av pág', fnMain: 'Av pág', fnSym: K('Page_Down'), repeat: true})]},
-        {w: 1, bottom: true, keys: [sp('', K('Right'), 1, {main: '▷', tag: 'Fin', fnMain: 'Fin', fnSym: K('End'), repeat: true})]},
+        {w: 1.14, bottom: true, keys: [sp('', K('Right'), 1, {main: '▷', tag: 'Fin', fnMain: 'Fin', fnSym: K('End'), repeat: true})]},
         ]},
 ];
 
@@ -175,8 +179,7 @@ class Keyboard {
             const keys = rowDef.keys;
             // Las filas centradas: el teclado queda con teclas cuadradas y no ocupa todo el ancho
             const row = new St.BoxLayout({style: `spacing: ${gap}px;`, x_expand: true, x_align: Clutter.ActorAlign.CENTER});
-            const total = keys.reduce((n, k) => n + k.w, 0);
-            const scale = ROW_UNITS / total;
+            const scale = 1;
             for (const def of keys) {
                 // Ancho = unidades × (lado + hueco) − hueco: las teclas anchas absorben los huecos que cubren
                 const w = Math.round(def.w * scale * (side + gap) - gap);
