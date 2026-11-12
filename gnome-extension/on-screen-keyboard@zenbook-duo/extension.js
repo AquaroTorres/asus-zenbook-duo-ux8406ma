@@ -20,9 +20,9 @@ import {QuickToggle, SystemIndicator} from 'resource:///org/gnome/shell/ui/quick
 // cambie, cada tecla produce el carácter que muestra. Ninguna tecla toma el foco (can_focus: false):
 // la ventana activa sigue recibiendo el texto.
 // Shift, Ctrl, Alt, Win y Fn son de un solo uso (se sueltan tras la siguiente tecla); «Bloq Mayús» es fijo.
-const HEIGHT_FRACTION = 0.50;   // tope de alto; las teclas son cuadradas, así que el alto real sale del ancho disponible
+const HEIGHT_FRACTION = 0.56;   // tope de alto; las teclas son cuadradas, así que el alto real sale del ancho disponible
 const FN_ROW_RATIO = 0.62;      // la fila de funciones es más baja que las demás
-const GAP = 6;
+const GAP_RATIO = 0.10;         // hueco entre teclas, como fracción del lado de una tecla (en el teclado físico ~10 %)
 const PAD = 8;
 const ROW_UNITS = 15;           // ancho de cada fila en teclas (todas las filas suman lo mismo)
 const REPEAT_DELAY_MS = 400;
@@ -115,7 +115,7 @@ class Keyboard {
     show() {
         if (this._box)
             return;
-        this._box = new St.BoxLayout({style_class: 'zosk-box', vertical: true, reactive: true, style: `spacing: ${GAP}px;`});
+        this._box = new St.BoxLayout({style_class: 'zosk-box', vertical: true, reactive: true});
         Main.layoutManager.addTopChrome(this._box, {affectsStruts: true});
         this._place();
     }
@@ -152,39 +152,43 @@ class Keyboard {
         const m = this._monitor();
         // Lado de una tecla cuadrada: el menor entre lo que cabe a lo ancho y a lo alto
         const units = ROWS.reduce((n, r) => n + (r.fn ? FN_ROW_RATIO : 1), 0);
-        const fromW = (m.width - 2 * PAD + GAP) / ROW_UNITS - GAP;
-        const fromH = (m.height * HEIGHT_FRACTION - 2 * PAD - GAP * (ROWS.length - 1)) / units;
+        // El hueco es proporcional al lado: una fila mide 15 lados + 14 huecos
+        const fromW = (m.width - 2 * PAD) / (ROW_UNITS + (ROW_UNITS - 1) * GAP_RATIO);
+        const fromH = (m.height * HEIGHT_FRACTION - 2 * PAD) / (units + (ROWS.length - 1) * GAP_RATIO);
         const side = Math.floor(Math.min(fromW, fromH));
-        const height = Math.round(units * side + GAP * (ROWS.length - 1) + 2 * PAD);
+        const gap = Math.round(side * GAP_RATIO);
+        const height = Math.round(units * side + gap * (ROWS.length - 1) + 2 * PAD);
         this._box.set_position(m.x, m.y + m.height - height);
         this._box.set_size(m.width, height);
-        this._build(side);
+        this._build(side, gap);
     }
 
-    _build(side) {
+    _build(side, gap) {
         this._box.destroy_all_children();
+        this._box.style = `spacing: ${gap}px;`;
+        this._side = side;
         this._labels = [];
         const fontPx = Math.max(12, Math.round(side * 0.3));
         for (const rowDef of ROWS) {
             const rowH = Math.floor(side * (rowDef.fn ? FN_ROW_RATIO : 1));
             const keys = rowDef.keys;
             // Las filas centradas: el teclado queda con teclas cuadradas y no ocupa todo el ancho
-            const row = new St.BoxLayout({style: `spacing: ${GAP}px;`, x_expand: true, x_align: Clutter.ActorAlign.CENTER});
+            const row = new St.BoxLayout({style: `spacing: ${gap}px;`, x_expand: true, x_align: Clutter.ActorAlign.CENTER});
             const total = keys.reduce((n, k) => n + k.w, 0);
             const scale = ROW_UNITS / total;
             for (const def of keys) {
                 // Ancho = unidades × (lado + hueco) − hueco: las teclas anchas absorben los huecos que cubren
-                const w = Math.round(def.w * scale * (side + GAP) - GAP);
+                const w = Math.round(def.w * scale * (side + gap) - gap);
                 if (def.stack) {
                     // Dos teclas apiladas (△ Re pág / ▽ Av pág), cada una de media altura
-                    const col = new St.BoxLayout({vertical: true, style: `spacing: ${GAP}px;`});
-                    const half = Math.floor((rowH - GAP) / 2);
+                    const col = new St.BoxLayout({vertical: true, style: `spacing: ${gap}px;`});
+                    const half = Math.floor((rowH - gap) / 2);
                     def.stack.forEach(d => col.add_child(this._makeKey(d, w, half, Math.round(fontPx * 0.8))));
                     row.add_child(col);
                 } else if (def.bottom) {
                     // Tecla de media altura pegada abajo (◁ Inicio, Fin ▷)
                     const col = new St.BoxLayout({vertical: true, y_align: Clutter.ActorAlign.END});
-                    const half = Math.floor((rowH - GAP) / 2);
+                    const half = Math.floor((rowH - gap) / 2);
                     col.add_child(this._makeKey(def.keys[0], w, half, Math.round(fontPx * 0.8)));
                     row.add_child(col);
                 } else {
@@ -202,20 +206,22 @@ class Keyboard {
             width: w, height: h, reactive: true, can_focus: false, track_hover: false,
         });
         const content = new St.Widget({layout_manager: new Clutter.BinLayout(), x_expand: true, y_expand: true});
-        const smallStyle = `font-size: ${Math.round(fontPx * 0.68)}px; color: rgba(255,255,255,0.8);`;
-        const inset = Math.max(5, Math.round(fontPx * 0.35));   // separación con el borde de la tecla
+        const smallStyle = `font-size: ${Math.round(fontPx * 0.72)}px; color: rgba(255,255,255,0.85);`;
+        // Separación con el borde de la tecla (con relleno: los márgenes de Clutter no se aplicaban
+        // en horizontal)
+        const side = this._side ?? h;
+        const padX = Math.round(side * 0.11);
+        const padY = Math.round(side * 0.07);
         // Rótulo pequeño de la esquina superior (símbolo con Shift o nombre de la tecla)
         const sub = new St.Label({
-            style: smallStyle,
+            style: `${smallStyle} padding: ${padY}px ${padX}px 0 ${padX}px;`,
             x_align: def.tagRight ? Clutter.ActorAlign.END : Clutter.ActorAlign.START,
             y_align: Clutter.ActorAlign.START, x_expand: true, y_expand: true,
-            margin_left: inset, margin_right: inset, margin_top: Math.round(inset * 0.7),
         });
         // Rótulo pequeño de abajo a la derecha (símbolo de Alt Gr)
         const alt = new St.Label({
-            style: smallStyle,
+            style: `${smallStyle} padding: 0 ${padX}px ${padY}px 0;`,
             x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true,
-            margin_right: inset, margin_bottom: Math.round(inset * 0.7),
         });
         let main;
         if (def.icons) {
