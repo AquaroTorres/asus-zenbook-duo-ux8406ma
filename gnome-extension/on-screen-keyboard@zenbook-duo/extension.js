@@ -1,4 +1,5 @@
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import St from 'gi://St';
@@ -27,49 +28,64 @@ const REPEAT_DELAY_MS = 400;
 const REPEAT_MS = 60;
 
 const K = n => Clutter[`KEY_${n}`];
-// Tecla con carácter (y su variante con Shift, que se dibuja pequeña arriba a la izquierda).
-// `kv`/`kvShift`: keysym explícito (teclas muertas), si no se usa el del carácter.
+const U = c => Clutter.unicode_to_keysym(c.codePointAt(0));
+// Tecla con carácter: `shift` es la variante con Shift (pequeña arriba a la izquierda) y `alt` la de
+// Alt Gr (pequeña abajo a la derecha), como en el teclado físico. `kv`/`kvShift`: keysym explícito
+// (teclas muertas), si no se usa el del carácter.
 const ch = (c, shift = c.toUpperCase(), w = 1, extra = {}) => ({char: c, shift, w, ...extra});
 // Tecla especial: `tag` es el rótulo pequeño de la esquina, `main` el símbolo del centro
 const sp = (tag, keyval, w, extra = {}) => ({tag, sym: keyval, w, ...extra});
 const mod = (tag, name, w, extra = {}) => ({tag, mod: name, w, ...extra});
-const fk = n => sp('', K(`F${n}`), 1, {main: `F${n}`, small: true});
+// Tecla de la fila de funciones. Sin Fn hace lo mismo que la física (multimedia o comando del
+// proyecto, igual que zenbook-hotkeys); con Fn manda F1..F12.
+const fk = (n, icons, extra = {}) => ({fnum: n, tag: `F${n}`, icons, small: true, w: 1, ...extra});
 
 const ROWS = [
     {fn: true, keys: [
         sp('', K('Escape'), 1, {main: 'Esc', small: true}),
-        ...Array.from({length: 12}, (_, i) => fk(i + 1)),
-        {main: '⌨▾', action: 'hide', w: 1, small: true},   // sin equivalente físico: oculta el teclado
-        sp('', K('Print'), 1, {main: 'PrtSc', small: true}),
-        sp('', K('Delete'), 1, {main: 'Supr', small: true, repeat: true})]},
+        fk(1, ['audio-volume-muted-symbolic'], {media: K('AudioMute')}),
+        fk(2, ['audio-volume-low-symbolic'], {media: K('AudioLowerVolume'), repeat: true}),
+        fk(3, ['audio-volume-high-symbolic'], {media: K('AudioRaiseVolume'), repeat: true}),
+        fk(4, ['keyboard-brightness-symbolic', 'input-keyboard-symbolic'], {cmd: ['zenbook-keyboard-backlight', 'cycle']}),
+        fk(5, ['display-brightness-low-symbolic', 'display-brightness-symbolic'], {cmd: ['zenbook-brightness', 'down']}),
+        fk(6, ['display-brightness-high-symbolic', 'display-brightness-symbolic'], {cmd: ['zenbook-brightness', 'up']}),
+        fk(7, ['video-joined-displays-symbolic', 'video-display-symbolic'], {combo: ['super', 'p']}),
+        fk(8, ['view-dual-symbolic', 'video-display-symbolic'], {cmd: ['zenbook-move-window']}),
+        fk(9, ['microphone-disabled-symbolic', 'audio-input-microphone-symbolic'], {cmd: ['zenbook-microphone', 'toggle']}),
+        fk(10, ['bluetooth-symbolic'], {cmd: ['zenbook-bluetooth', 'toggle']}),
+        fk(11, ['face-smile-symbolic'], {combo: ['ctrl', '.']}),
+        fk(12, ['applications-system-symbolic'], {}),
+        {icons: ['input-keyboard-symbolic'], main: '▾', action: 'hide', w: 1, small: true},   // sin equivalente físico: oculta el teclado
+        sp('', K('Print'), 1, {main: 'Prt Sc', small: true}),
+        sp('Ins', K('Delete'), 1, {main: 'Delete', small: true, repeat: true, tagRight: true, fnSym: K('Insert'), fnMain: 'Ins'})]},
     {keys: [
-        ch('|', '°'), ch('1', '!'), ch('2', '"'), ch('3', '#'), ch('4', '$'), ch('5', '%'), ch('6', '&'),
-        ch('7', '/'), ch('8', '('), ch('9', ')'), ch('0', '='), ch("'", '?'), ch('¿', '¡'),
-        sp('', K('BackSpace'), 2, {main: '⟵', tag: 'Retroceso', tagRight: true, repeat: true})]},
+        ch('|', '°', 1, {alt: '¬'}), ch('1', '!'), ch('2', '"'), ch('3', '#'), ch('4', '$'), ch('5', '%'), ch('6', '&'),
+        ch('7', '/'), ch('8', '('), ch('9', ')'), ch('0', '='), ch("'", '?', 1, {alt: '\\'}), ch('¿', '¡'),
+        sp('', K('BackSpace'), 2, {main: '⟵', repeat: true})]},
     {keys: [
-        sp('', K('Tab'), 1.5, {main: '⇥', tag: 'Tab'}),
-        ch('q'), ch('w'), ch('e'), ch('r'), ch('t'), ch('y'), ch('u'), ch('i'), ch('o'), ch('p'),
+        sp('', K('Tab'), 1.5, {main: '⇆'}),
+        ch('q', 'Q', 1, {alt: '@'}), ch('w'), ch('e'), ch('r'), ch('t'), ch('y'), ch('u'), ch('i'), ch('o'), ch('p'),
         ch('´', '¨', 1, {kv: K('dead_acute'), kvShift: K('dead_diaeresis')}),
-        ch('+', '*'), ch('}', ']', 1.5)]},
+        ch('+', '*', 1, {alt: '~'}), ch('}', ']', 1.5, {alt: '`'})]},
     {keys: [
-        mod('Bloq Mayús', 'caps', 1.9),
+        mod('Bloq mayús', 'caps', 1.9),
         ch('a'), ch('s'), ch('d'), ch('f'), ch('g'), ch('h'), ch('j'), ch('k'), ch('l'), ch('ñ'),
-        ch('{', '['),
-        sp('', K('Return'), 2.1, {main: '↵', tag: 'Enter', tagRight: true})]},
+        ch('{', '[', 1, {alt: '^'}),
+        sp('', K('Return'), 2.1, {main: '↵'})]},
     {keys: [
-        mod('⇧', 'shift', 1.2), ch('<', '>'),
+        mod('', 'shift', 1.2, {main: '⇧'}), ch('<', '>'),
         ch('z'), ch('x'), ch('c'), ch('v'), ch('b'), ch('n'), ch('m'),
         ch(',', ';'), ch('.', ':'), ch('-', '_'),
-        mod('Shift ⇧', 'shift', 2.8)]},
+        mod('', 'shift', 2.8, {main: '⇧'})]},
     {keys: [
-        mod('Ctrl', 'ctrl', 1.3), mod('Fn', 'fn', 1), mod('', 'super', 1, {main: '⊞'}), mod('Alt', 'alt', 1),
-        sp('', K('space'), 5.7, {main: '—', repeat: true}),
-        mod('Alt Gr', 'alt', 1), mod('Ctrl', 'ctrl', 1),
-        sp('', K('Left'), 1, {main: '◀', fnMain: 'Inicio', fnSym: K('Home'), repeat: true}),
+        mod('Ctrl', 'ctrl', 1.3), mod('Fn+Esc', 'fn', 1, {main: 'Fn'}), mod('', 'super', 1, {main: '⊞'}), mod('Alt', 'alt', 1),
+        sp('', K('space'), 5.7, {repeat: true}),
+        mod('Alt Gr', 'altgr', 1), mod('Ctrl', 'ctrl', 1),
+        {w: 1, bottom: true, keys: [sp('', K('Left'), 1, {main: '◁', tag: 'Inicio', fnMain: 'Inicio', fnSym: K('Home'), repeat: true})]},
         {w: 1, stack: [
-            sp('', K('Up'), 1, {main: '▲', fnMain: 'Re Pág', fnSym: K('Page_Up'), repeat: true}),
-            sp('', K('Down'), 1, {main: '▼', fnMain: 'Av Pág', fnSym: K('Page_Down'), repeat: true})]},
-        sp('', K('Right'), 1, {main: '▶', fnMain: 'Fin', fnSym: K('End'), repeat: true}),
+            sp('', K('Up'), 1, {main: '△ Re pág', fnMain: 'Re pág', fnSym: K('Page_Up'), repeat: true}),
+            sp('', K('Down'), 1, {main: '▽ Av pág', fnMain: 'Av pág', fnSym: K('Page_Down'), repeat: true})]},
+        {w: 1, bottom: true, keys: [sp('', K('Right'), 1, {main: '▷', tag: 'Fin', fnMain: 'Fin', fnSym: K('End'), repeat: true})]},
         ]},
 ];
 
@@ -78,7 +94,7 @@ const MODIFIER_KEYVAL = {
 };
 
 const isLetter = c => c.toLowerCase() !== c.toUpperCase();
-const NO_STATE = () => ({shift: false, caps: false, ctrl: false, alt: false, super: false, fn: false});
+const NO_STATE = () => ({shift: false, caps: false, ctrl: false, alt: false, altgr: false, super: false, fn: false});
 
 class Keyboard {
     constructor() {
@@ -154,10 +170,16 @@ class Keyboard {
             for (const def of keys) {
                 const w = Math.floor(avail * def.w / total);
                 if (def.stack) {
-                    // Dos teclas apiladas (▲ / ▼), cada una de media altura
+                    // Dos teclas apiladas (△ Re pág / ▽ Av pág), cada una de media altura
                     const col = new St.BoxLayout({vertical: true, style: `spacing: ${GAP}px;`});
                     const half = Math.floor((rowH - GAP) / 2);
                     def.stack.forEach(d => col.add_child(this._makeKey(d, w, half, Math.round(fontPx * 0.75))));
+                    row.add_child(col);
+                } else if (def.bottom) {
+                    // Tecla de media altura pegada abajo (◁ Inicio, Fin ▷)
+                    const col = new St.BoxLayout({vertical: true, y_align: Clutter.ActorAlign.END});
+                    const half = Math.floor((rowH - GAP) / 2);
+                    col.add_child(this._makeKey(def.keys[0], w, half, Math.round(fontPx * 0.75)));
                     row.add_child(col);
                 } else {
                     row.add_child(this._makeKey(def, w, rowH, def.small ? Math.round(fontPx * 0.8) : fontPx));
@@ -174,21 +196,38 @@ class Keyboard {
             width: w, height: h, reactive: true, can_focus: false, track_hover: false,
         });
         const content = new St.Widget({layout_manager: new Clutter.BinLayout(), x_expand: true, y_expand: true});
-        // Rótulo pequeño de la esquina (símbolo con Shift o nombre de la tecla)
+        const smallStyle = `font-size: ${Math.round(fontPx * 0.5)}px; color: rgba(255,255,255,0.75);`;
+        // Rótulo pequeño de la esquina superior (símbolo con Shift o nombre de la tecla)
         const sub = new St.Label({
-            style: `font-size: ${Math.round(fontPx * 0.5)}px; color: rgba(255,255,255,0.75);`,
+            style: smallStyle,
             x_align: def.tagRight ? Clutter.ActorAlign.END : Clutter.ActorAlign.START,
             y_align: Clutter.ActorAlign.START, x_expand: true, y_expand: true,
         });
-        const main = new St.Label({
-            style: `font-size: ${Math.round(fontPx * (def.char !== undefined ? 1.2 : 0.95))}px;`,
-            x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
-            x_expand: true, y_expand: true,
+        // Rótulo pequeño de abajo a la derecha (símbolo de Alt Gr)
+        const alt = new St.Label({
+            style: smallStyle,
+            x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true,
         });
+        let main;
+        if (def.icons) {
+            main = new St.Icon({
+                gicon: Gio.ThemedIcon.new_from_names(def.icons),
+                icon_size: Math.round(fontPx * 1.3),
+                x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
+                x_expand: true, y_expand: true,
+            });
+        } else {
+            main = new St.Label({
+                style: `font-size: ${Math.round(fontPx * (def.char !== undefined ? 1.2 : 0.95))}px;`,
+                x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
+                x_expand: true, y_expand: true,
+            });
+        }
         content.add_child(sub);
+        content.add_child(alt);
         content.add_child(main);
         btn.set_child(content);
-        this._labels.push({btn, def, main, sub});
+        this._labels.push({btn, def, main, sub, alt});
 
         let pressed = false;
         const down = () => {
@@ -224,20 +263,29 @@ class Keyboard {
         return btn;
     }
 
-    // Texto de cada tecla según Shift/Bloq Mayús/Fn y marca de los modificadores activos
+    // Texto de cada tecla según Shift/Bloq Mayús/Alt Gr/Fn y marca de los modificadores activos
     _refresh() {
-        const {shift, caps, fn} = this._state;
-        for (const {btn, def, main, sub} of this._labels) {
+        const {shift, caps, altgr, fn} = this._state;
+        for (const {btn, def, main, sub, alt} of this._labels) {
             if (def.char !== undefined) {
                 const letter = isLetter(def.char);
                 const upper = letter ? (shift || caps) : shift;
-                main.text = upper ? def.shift : def.char;
-                sub.text = letter ? '' : (upper ? def.char : def.shift);
+                if (altgr && def.alt) {
+                    main.text = def.alt;
+                    sub.text = '';
+                    alt.text = '';
+                } else {
+                    main.text = upper ? def.shift : def.char;
+                    sub.text = letter ? '' : (upper ? def.char : def.shift);
+                    alt.text = def.alt ?? '';
+                }
             } else if (fn && def.fnSym) {
-                main.text = def.fnMain;
+                if (!def.icons)
+                    main.text = def.fnMain;
                 sub.text = '';
             } else {
-                main.text = def.main ?? '';
+                if (!def.icons)
+                    main.text = def.main ?? '';
                 sub.text = def.tag ?? '';
             }
             if (def.mod) {
@@ -273,34 +321,58 @@ class Keyboard {
         }
         this._send(def);
         // Los modificadores de un solo uso se sueltan tras la tecla; «Bloq Mayús» queda fijo
-        for (const m of ['shift', 'ctrl', 'alt', 'super', 'fn'])
+        for (const m of ['shift', 'ctrl', 'alt', 'altgr', 'super', 'fn'])
             this._state[m] = false;
         this._refresh();
     }
 
     _send(def) {
-        const {shift, caps, ctrl, alt, super: sup, fn} = this._state;
+        const {shift, caps, ctrl, alt, altgr, super: sup, fn} = this._state;
         const anyMod = ctrl || alt || sup;
         let keyval;
         let realShift = false;
-        if (def.char !== undefined) {
+        const held = [];
+
+        if (def.fnum !== undefined && !fn) {
+            // Fila de funciones sin Fn: lo mismo que la tecla física (comando del proyecto o multimedia)
+            if (def.cmd) {
+                try {
+                    Gio.Subprocess.new(def.cmd.map((p, i) => (i === 0 ? `/usr/local/bin/${p}` : p)),
+                        Gio.SubprocessFlags.NONE);
+                } catch (e) {
+                    console.error(`on-screen-keyboard: ${def.cmd.join(' ')}: ${e}`);
+                }
+                return;
+            }
+            if (def.combo) {
+                const [m, c] = def.combo;
+                held.push(MODIFIER_KEYVAL[m]);
+                keyval = U(c);
+            } else if (def.media) {
+                keyval = def.media;
+            } else {
+                return;     // F12 (MyASUS): sin acción, como en Linux
+            }
+        } else if (def.fnum !== undefined) {
+            keyval = K(`F${def.fnum}`);
+            realShift = shift;
+        } else if (def.char !== undefined) {
             const letter = isLetter(def.char);
-            if (anyMod) {
+            if (altgr && def.alt) {
+                keyval = U(def.alt);
+            } else if (anyMod) {
                 // Con Ctrl/Alt/Super se manda la tecla base y el Shift real
-                keyval = def.kv ?? Clutter.unicode_to_keysym(def.char.codePointAt(0));
+                keyval = def.kv ?? U(def.char);
                 realShift = shift || (letter && caps);
             } else {
                 const upper = letter ? (shift || caps) : shift;
-                keyval = upper
-                    ? (def.kvShift ?? Clutter.unicode_to_keysym(def.shift.codePointAt(0)))
-                    : (def.kv ?? Clutter.unicode_to_keysym(def.char.codePointAt(0)));
+                keyval = upper ? (def.kvShift ?? U(def.shift)) : (def.kv ?? U(def.char));
             }
         } else {
             keyval = (fn && def.fnSym) ? def.fnSym : def.sym;
             realShift = shift;
         }
 
-        const held = [];
         if (ctrl) held.push(MODIFIER_KEYVAL.ctrl);
         if (alt) held.push(MODIFIER_KEYVAL.alt);
         if (sup) held.push(MODIFIER_KEYVAL.super);
