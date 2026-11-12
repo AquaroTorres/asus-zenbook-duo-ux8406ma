@@ -11,7 +11,8 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 // se redimensiona a esa fracción del área de trabajo. «Entera» hace dos cosas: en la otra pantalla
 // manda la ventana allí conservando su tamaño (igual que Super+Shift+flecha); en la pantalla donde
 // ya estaba la maximiza. El panel queda unos OFFSET_PX por debajo del puntero (centrado en él), en la pantalla donde empieza el arrastre.
-// Solo actúa si están ambas pantallas del notebook; los monitores externos se ignoran.
+// Si una de las pantallas del notebook está apagada (p. ej. teclado por USB) el panel sale igual,
+// con una sola fila; los monitores externos se ignoran.
 const MOVING = [Meta.GrabOp.MOVING, Meta.GrabOp.MOVING_UNCONSTRAINED];
 const POLL_MS = 50;
 const PANELS = ['eDP-1', 'eDP-2'];
@@ -64,7 +65,8 @@ export default class SoltarEnPantallaExtension extends Extension {
         if (!window || !MOVING.includes(op))
             return;
         const monitors = this._monitors();
-        if (monitors.length < 2)
+        // Con la pantalla inferior apagada queda una sola: el panel aparece igual, con una fila
+        if (monitors.length < 1)
             return;
         const [px, py] = global.get_pointer();
         const host = this._hostAt(monitors, px, py);
@@ -80,7 +82,7 @@ export default class SoltarEnPantallaExtension extends Extension {
         this._panels = [];
         const names = monitors.length === 2
             ? ['Arriba', 'Abajo']
-            : monitors.map((_m, i) => `Pantalla ${i + 1}`);
+            : monitors.map((_m, i) => (monitors.length === 1 ? 'Pantalla' : `Pantalla ${i + 1}`));
 
         // Un solo panel: una fila por pantalla de destino, con una disposición por icono.
         {
