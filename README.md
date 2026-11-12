@@ -1,7 +1,7 @@
 # ASUS Zenbook Duo (UX8406MA) en Linux
 
 Un script por función para controlar el Zenbook Duo en Manjaro/Arch con GNOME
-(Wayland), más once extensiones de GNOME Shell. Cada script es independiente y
+(Wayland), más doce extensiones de GNOME Shell. Cada script es independiente y
 se puede usar solo.
 
 > **Aviso:** probado únicamente en un **ASUS Zenbook Duo UX8406MA** con **Manjaro** y **GNOME 50 (Wayland)**.
@@ -45,6 +45,7 @@ Detalles técnicos y decisiones de diseño: [AGENTS.md](AGENTS.md).
 | `auto-brightness` | Botón en Ajustes rápidos para activar o desactivar el brillo automático de GNOME |
 | `battery-charge-limit` | Botón en Ajustes rápidos para quitar o volver a poner el límite de carga de la batería, y cargar hasta el 100 % |
 | `bluetooth-battery` | Lista en Ajustes rápidos los dispositivos Bluetooth conectados con su batería (nombre, barra y porcentaje) |
+| `on-screen-keyboard` | Teclado táctil propio, fijo abajo en la pantalla inferior, con Ctrl, Alt, Super, teclas de función y flechas; botón «Teclado» en Ajustes rápidos |
 | `move-window` | Mueve la ventana activa a la otra pantalla cuando `zenbook-move-window` se lo pide (sin icono) |
 | `swap-screens` | Respaldo: intercambia todas las ventanas cuando `zenbook-swap-screens` se lo pide (sin icono) |
 | `onedrive-mount` | Botón "OneDrive" en Ajustes rápidos para montar o desmontar OneDrive (rclone) en `~/OneDrive` |
@@ -92,7 +93,7 @@ Al final lista lo que falte. Orquesta los tres instaladores, que también se pue
 - crea `/etc/sudoers.d/zenbook-duo` (la luz del teclado necesita root);
 - instala la regla udev de hidraw y te agrega al grupo `input`;
 - instala los servicios de usuario y activa `zenbook-hotkeys`, `zenbook-screen-rotation`, `zenbook-microphone` y `zenbook-keyboard-monitor`;
-- instala y habilita las once extensiones.
+- instala y habilita las doce extensiones.
 
 No instala el EDID personalizado ni toca GRUB/initramfs: eso lo hace `./install-lower-screen-edid.sh` (ver [Touchscreens](#zenbook-touchscreen)).
 
@@ -366,11 +367,12 @@ Para GNOME Shell 50. Se instalan en `~/.local/share/gnome-shell/extensions/`.
 | `lower-screen@zenbook-duo` | Ajustes rápidos | Botón "Pantalla inferior" para encender o apagar la pantalla inferior (subtítulo Encendida/Apagada). |
 | `move-window@zenbook-duo` | Sin icono | Mueve la ventana activa a la otra pantalla con F8. Expone `org.zenbook.Windows.MoveActive` por D-Bus; lo llama el script `zenbook-move-window`. |
 | `swap-screens@zenbook-duo` | Sin icono | Respaldo, sin tecla asignada: intercambia todas las ventanas entre las dos pantallas. Expone `org.zenbook.Screens.Swap` por D-Bus; lo llama el script `zenbook-swap-screens`. |
-| `drag-to-screen@zenbook-duo` | Debajo del puntero, mientras se arrastra una ventana | Sin icono permanente. Al arrastrar una ventana por su barra de título aparece, **unos 100 px debajo del puntero** y centrado en él, un panel con una fila por pantalla (**Arriba** y **Abajo**) y cuatro iconos por fila: **entera**, **mitades verticales** (izquierda/derecha), **mitades horizontales** (superior/inferior) y **cuartos**. Si no cabe debajo (cerca del borde inferior) aparece por encima, y siempre queda dentro de la pantalla; soltarla sobre «entera» de la **otra** pantalla la manda allí, como `Super+Shift+flecha`, conservando la posición que tenía antes de arrastrar (o maximizada si lo estaba), y sobre «entera» de la pantalla **donde ya estaba** la maximiza; sobre cualquier otra zona la des-maximiza, la manda a esa pantalla y la ajusta a esa mitad o cuarto del área de trabajo. Solo actúa si están ambas pantallas del notebook; ignora los monitores externos. |
+| `drag-to-screen@zenbook-duo` | Debajo del puntero, mientras se arrastra una ventana | Sin icono permanente. Al arrastrar una ventana por su barra de título aparece, **unos 100 px debajo del puntero** y centrado en él, un panel con una fila por pantalla (**Arriba** y **Abajo**) y cuatro iconos por fila: **entera**, **mitades verticales** (izquierda/derecha), **mitades horizontales** (superior/inferior) y **cuartos**. Si no cabe debajo (cerca del borde inferior) aparece por encima, y siempre queda dentro de la pantalla; soltarla sobre «entera» de la **otra** pantalla la manda allí, como `Super+Shift+flecha`, conservando la posición que tenía antes de arrastrar (o maximizada si lo estaba), y sobre «entera» de la pantalla **donde ya estaba** la maximiza; sobre cualquier otra zona la des-maximiza, la manda a esa pantalla y la ajusta a esa mitad o cuarto del área de trabajo. Con la pantalla inferior apagada (teclado por USB) el panel aparece igual, con una sola fila («Pantalla»); ignora los monitores externos. |
 | `monitor-brightness@zenbook-duo` | Ajustes rápidos | Dos sliders de brillo, **Superior** e **Inferior**, independientes, en lugar del slider único de GNOME (que se oculta). Escriben directo en el backlight de cada pantalla por logind, sin pasar por Mutter. El de la pantalla inferior se oculta cuando esa pantalla está apagada, y ambos reflejan los cambios de F5/F6. Nació de un fallo de Mutter 50.5 en el que el slider de eDP-2 movía eDP-1 (ver el comentario en `extension.js` y `AGENTS.md`). |
 | `auto-brightness@zenbook-duo` | Ajustes rápidos | Botón que activa o desactiva el brillo automático de GNOME (`ambient-enabled`). Se actualiza si lo cambias desde Configuración. |
 | `battery-charge-limit@zenbook-duo` | Ajustes rápidos | Botón "Carga completa": marcado = **sin límite** (la batería carga hasta el 100 %); desmarcado = vuelve el límite de carga (el subtítulo muestra el porcentaje, p. ej. «Límite 80 %»). Usa el límite de UPower, el mismo de Configuración → Energía, por D-Bus: sin root ni contraseña. No aparece si el equipo no tiene batería con límite de carga. |
 | `bluetooth-battery@zenbook-duo` | Ajustes rápidos | Fila por cada dispositivo Bluetooth **conectado** que informe batería: icono, nombre, barra y porcentaje (la barra se pone roja con 20 % o menos). Lee BlueZ por D-Bus (`org.bluez.Battery1`) y se actualiza con sus avisos, sin sondeo. Se oculta si ningún dispositivo informa batería. |
+| `on-screen-keyboard@zenbook-duo` | Ajustes rápidos | Botón «Teclado» que muestra u oculta un teclado táctil de ancho completo en la parte inferior de la pantalla inferior (eDP-2; en la principal si esa está apagada). Filas: Esc/F1–F12/Supr, números, QWERTY con á é í ó ú ñ ü, símbolos y Ctrl/Super/Alt/espacio/flechas. Shift, Ctrl, Alt y Super son de un solo uso; «Mayús» es fijo; Retroceso, Supr, flechas y espacio repiten al mantener. Las teclas no toman el foco: el texto va a la ventana activa. Envía keysyms por un teclado virtual de Mutter, así que funciona con la distribución activa (latam). Reserva el espacio (las ventanas no quedan debajo). Nació porque el teclado de GNOME no detectaba el toque en la pantalla inferior. No incluye aparición automática al tocar un campo de texto. |
 | `screen-rotation@zenbook-duo` | Ajustes rápidos | Botón con menú: normal, izquierda, derecha, invertida y rotación automática. |
 | `onedrive-mount@zenbook-duo` | Ajustes rápidos | Botón "OneDrive" (subtítulo Montado/Desmontado/Montando…): marcado = `~/OneDrive` montado con rclone. Arranca y detiene el servicio `zenbook-onedrive` con `systemctl --user`; el estado sale de `/proc/self/mountinfo` (se revisa cada 3 s, así que refleja también un montaje hecho a mano). Si falla, muestra una notificación con el motivo. Requiere `rclone` con un remote llamado `onedrive`. |
 
@@ -394,7 +396,7 @@ Logs: `journalctl --user -u zenbook-hotkeys -f`.
 
 ```
 scripts/            un script por función (zenbook-*)
-gnome-extension/    las once extensiones
+gnome-extension/    las doce extensiones
 systemd/user/       servicios de usuario
 udev/               regla para leer hidraw sin root
 zenbook-duo.conf    configuración (→ /etc/zenbook-duo.conf)

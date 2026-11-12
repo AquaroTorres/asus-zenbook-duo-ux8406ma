@@ -1,0 +1,8 @@
+{
+  "uuid": "on-screen-keyboard@zenbook-duo",
+  "name": "Teclado en pantalla",
+  "description": "Teclado táctil fijo en la parte inferior de la pantalla inferior (eDP-2), con Ctrl, Alt, Super, teclas de función y flechas. Botón en Ajustes rápidos.",
+  "shell-version": [
+    "50"
+  ]
+}
