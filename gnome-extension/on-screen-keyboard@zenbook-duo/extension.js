@@ -84,10 +84,10 @@ const ROWS = [
         ch(',', ';'), ch('.', ':'), ch('-', '_'),
         mod('', 'shift', 2.34, {main: '⇧'})]},
     {keys: [
-        mod('Ctrl', 'ctrl', 1.41), mod('Fn+Esc', 'fn', 1, {main: 'Fn'}), mod('', 'super', 1, {main: '⊞'}), mod('Alt', 'alt', 1),
+        mod('Ctrl', 'ctrl', 1.41), mod('Fn+Esc', 'fn', 1, {main: 'Fn'}), mod('', 'super', 1, {logo: true}), mod('Alt', 'alt', 1),
         sp('', K('space'), 5, {repeat: true}),
         mod('Alt Gr', 'altgr', 1), mod('Ctrl', 'ctrl', 1),
-        {w: 1, bottom: true, keys: [sp('', K('Left'), 1, {main: '◁', tag: 'Inicio', fnMain: 'Inicio', fnSym: K('Home'), repeat: true})]},
+        {w: 1, bottom: true, keys: [sp('', K('Left'), 1, {main: '◁ Inicio', fnMain: 'Inicio', fnSym: K('Home'), repeat: true})]},
         {w: 1.2, stack: [
             sp('', K('Up'), 1, {main: '△ Re pág', fnMain: 'Re pág', fnSym: K('Page_Up'), repeat: true}),
             sp('', K('Down'), 1, {main: '▽ Av pág', fnMain: 'Av pág', fnSym: K('Page_Down'), repeat: true})]},
@@ -228,7 +228,24 @@ class Keyboard {
             x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true,
         });
         let main;
-        if (def.icons) {
+        if (def.logo) {
+            // Logo de Windows: cuatro cuadrados blancos
+            const q = Math.max(6, Math.round(fontPx * 0.5));
+            const square = () => new St.Widget({width: q, height: q, style: 'background-color: rgba(255,255,255,0.92);'});
+            const row = () => {
+                const r = new St.BoxLayout({style: 'spacing: 2px;'});
+                r.add_child(square());
+                r.add_child(square());
+                return r;
+            };
+            main = new St.BoxLayout({
+                vertical: true, style: 'spacing: 2px;',
+                x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
+                x_expand: true, y_expand: true,
+            });
+            main.add_child(row());
+            main.add_child(row());
+        } else if (def.icons) {
             // En las teclas de función el icono va a la izquierda para dejar sitio a «F1», «F2»… a la
             // derecha (como en el teclado físico); en las demás va centrado
             const left = def.fnum !== undefined;
@@ -304,7 +321,7 @@ class Keyboard {
                     alt.text = def.alt ?? '';
                 }
             } else if (fn && def.fnSym) {
-                if (!def.icons)
+                if (!def.icons && !def.logo)
                     main.text = def.fnMain;
                 sub.text = '';
             } else if (!def.icons && def.main === undefined && def.tag) {
@@ -312,7 +329,7 @@ class Keyboard {
                 main.text = def.tag;
                 sub.text = '';
             } else {
-                if (!def.icons)
+                if (!def.icons && !def.logo)
                     main.text = def.main ?? '';
                 sub.text = def.tag ?? '';
             }
