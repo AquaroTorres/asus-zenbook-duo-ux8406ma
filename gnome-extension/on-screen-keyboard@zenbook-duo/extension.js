@@ -20,10 +20,11 @@ import {QuickToggle, SystemIndicator} from 'resource:///org/gnome/shell/ui/quick
 // cambie, cada tecla produce el carácter que muestra. Ninguna tecla toma el foco (can_focus: false):
 // la ventana activa sigue recibiendo el texto.
 // Shift, Ctrl, Alt, Win y Fn son de un solo uso (se sueltan tras la siguiente tecla); «Bloq Mayús» es fijo.
-const HEIGHT_FRACTION = 0.40;
+const HEIGHT_FRACTION = 0.50;   // tope de alto; las teclas son cuadradas, así que el alto real sale del ancho disponible
 const FN_ROW_RATIO = 0.62;      // la fila de funciones es más baja que las demás
 const GAP = 6;
 const PAD = 8;
+const ROW_UNITS = 15;           // ancho de cada fila en teclas (todas las filas suman lo mismo)
 const REPEAT_DELAY_MS = 400;
 const REPEAT_MS = 60;
 
@@ -38,7 +39,7 @@ const sp = (tag, keyval, w, extra = {}) => ({tag, sym: keyval, w, ...extra});
 const mod = (tag, name, w, extra = {}) => ({tag, mod: name, w, ...extra});
 // Tecla de la fila de funciones. Sin Fn hace lo mismo que la física (multimedia o comando del
 // proyecto, igual que zenbook-hotkeys); con Fn manda F1..F12.
-const fk = (n, icons, extra = {}) => ({fnum: n, tag: `F${n}`, icons, small: true, w: 1, ...extra});
+const fk = (n, icons, extra = {}) => ({fnum: n, tag: `F${n}`, tagRight: true, icons, small: true, w: 1, ...extra});
 
 const ROWS = [
     {fn: true, keys: [
@@ -114,7 +115,7 @@ class Keyboard {
     show() {
         if (this._box)
             return;
-        this._box = new St.BoxLayout({style_class: 'zosk-box', vertical: true, reactive: true});
+        this._box = new St.BoxLayout({style_class: 'zosk-box', vertical: true, reactive: true, style: `spacing: ${GAP}px;`});
         Main.layoutManager.addTopChrome(this._box, {affectsStruts: true});
         this._place();
     }
@@ -149,37 +150,42 @@ class Keyboard {
         if (!this._box)
             return;
         const m = this._monitor();
-        const height = Math.round(m.height * HEIGHT_FRACTION);
+        // Lado de una tecla cuadrada: el menor entre lo que cabe a lo ancho y a lo alto
+        const units = ROWS.reduce((n, r) => n + (r.fn ? FN_ROW_RATIO : 1), 0);
+        const fromW = (m.width - 2 * PAD + GAP) / ROW_UNITS - GAP;
+        const fromH = (m.height * HEIGHT_FRACTION - 2 * PAD - GAP * (ROWS.length - 1)) / units;
+        const side = Math.floor(Math.min(fromW, fromH));
+        const height = Math.round(units * side + GAP * (ROWS.length - 1) + 2 * PAD);
         this._box.set_position(m.x, m.y + m.height - height);
         this._box.set_size(m.width, height);
-        this._build(m.width, height);
+        this._build(side);
     }
 
-    _build(width, height) {
+    _build(side) {
         this._box.destroy_all_children();
         this._labels = [];
-        const units = ROWS.reduce((s, r) => s + (r.fn ? FN_ROW_RATIO : 1), 0);
-        const unitH = (height - 2 * PAD - GAP * (ROWS.length - 1)) / units;
-        const fontPx = Math.max(12, Math.round(unitH * 0.3));
+        const fontPx = Math.max(12, Math.round(side * 0.3));
         for (const rowDef of ROWS) {
-            const rowH = Math.floor(unitH * (rowDef.fn ? FN_ROW_RATIO : 1));
+            const rowH = Math.floor(side * (rowDef.fn ? FN_ROW_RATIO : 1));
             const keys = rowDef.keys;
-            const row = new St.BoxLayout({style: `spacing: ${GAP}px;`, x_expand: true});
-            const total = keys.reduce((s, k) => s + k.w, 0);
-            const avail = width - 2 * PAD - GAP * (keys.length - 1);
+            // Las filas centradas: el teclado queda con teclas cuadradas y no ocupa todo el ancho
+            const row = new St.BoxLayout({style: `spacing: ${GAP}px;`, x_expand: true, x_align: Clutter.ActorAlign.CENTER});
+            const total = keys.reduce((n, k) => n + k.w, 0);
+            const scale = ROW_UNITS / total;
             for (const def of keys) {
-                const w = Math.floor(avail * def.w / total);
+                // Ancho = unidades × (lado + hueco) − hueco: las teclas anchas absorben los huecos que cubren
+                const w = Math.round(def.w * scale * (side + GAP) - GAP);
                 if (def.stack) {
                     // Dos teclas apiladas (△ Re pág / ▽ Av pág), cada una de media altura
                     const col = new St.BoxLayout({vertical: true, style: `spacing: ${GAP}px;`});
                     const half = Math.floor((rowH - GAP) / 2);
-                    def.stack.forEach(d => col.add_child(this._makeKey(d, w, half, Math.round(fontPx * 0.75))));
+                    def.stack.forEach(d => col.add_child(this._makeKey(d, w, half, Math.round(fontPx * 0.8))));
                     row.add_child(col);
                 } else if (def.bottom) {
                     // Tecla de media altura pegada abajo (◁ Inicio, Fin ▷)
                     const col = new St.BoxLayout({vertical: true, y_align: Clutter.ActorAlign.END});
                     const half = Math.floor((rowH - GAP) / 2);
-                    col.add_child(this._makeKey(def.keys[0], w, half, Math.round(fontPx * 0.75)));
+                    col.add_child(this._makeKey(def.keys[0], w, half, Math.round(fontPx * 0.8)));
                     row.add_child(col);
                 } else {
                     row.add_child(this._makeKey(def, w, rowH, def.small ? Math.round(fontPx * 0.8) : fontPx));
@@ -196,17 +202,20 @@ class Keyboard {
             width: w, height: h, reactive: true, can_focus: false, track_hover: false,
         });
         const content = new St.Widget({layout_manager: new Clutter.BinLayout(), x_expand: true, y_expand: true});
-        const smallStyle = `font-size: ${Math.round(fontPx * 0.5)}px; color: rgba(255,255,255,0.75);`;
+        const smallStyle = `font-size: ${Math.round(fontPx * 0.68)}px; color: rgba(255,255,255,0.8);`;
+        const inset = Math.max(5, Math.round(fontPx * 0.35));   // separación con el borde de la tecla
         // Rótulo pequeño de la esquina superior (símbolo con Shift o nombre de la tecla)
         const sub = new St.Label({
             style: smallStyle,
             x_align: def.tagRight ? Clutter.ActorAlign.END : Clutter.ActorAlign.START,
             y_align: Clutter.ActorAlign.START, x_expand: true, y_expand: true,
+            margin_left: inset, margin_right: inset, margin_top: Math.round(inset * 0.7),
         });
         // Rótulo pequeño de abajo a la derecha (símbolo de Alt Gr)
         const alt = new St.Label({
             style: smallStyle,
             x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true,
+            margin_right: inset, margin_bottom: Math.round(inset * 0.7),
         });
         let main;
         if (def.icons) {
@@ -282,6 +291,10 @@ class Keyboard {
             } else if (fn && def.fnSym) {
                 if (!def.icons)
                     main.text = def.fnMain;
+                sub.text = '';
+            } else if (!def.icons && def.main === undefined && def.tag) {
+                // Solo nombre (Ctrl, Alt, Alt Gr, Bloq mayús): va centrado
+                main.text = def.tag;
                 sub.text = '';
             } else {
                 if (!def.icons)
