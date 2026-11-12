@@ -229,10 +229,15 @@ class Keyboard {
         });
         let main;
         if (def.icons) {
+            // En las teclas de función el icono va a la izquierda para dejar sitio a «F1», «F2»… a la
+            // derecha (como en el teclado físico); en las demás va centrado
+            const left = def.fnum !== undefined;
             main = new St.Icon({
                 gicon: Gio.ThemedIcon.new_from_names(def.icons),
                 icon_size: Math.round(fontPx * 1.3),
-                x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
+                style: left ? `padding-left: ${padX}px;` : '',
+                x_align: left ? Clutter.ActorAlign.START : Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
                 x_expand: true, y_expand: true,
             });
         } else {
