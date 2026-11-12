@@ -21,7 +21,7 @@ import {QuickToggle, SystemIndicator} from 'resource:///org/gnome/shell/ui/quick
 // la ventana activa sigue recibiendo el texto.
 // Shift, Ctrl, Alt, Win y Fn son de un solo uso (se sueltan tras la siguiente tecla); «Bloq Mayús» es fijo.
 const HEIGHT_FRACTION = 0.56;   // tope de alto; las teclas son cuadradas, así que el alto real sale del ancho disponible
-const FN_ROW_RATIO = 0.62;      // la fila de funciones es más baja que las demás
+const FN_ROW_RATIO = 0.52;      // la fila de funciones es más baja que las demás
 const GAP_RATIO = 0.10;         // hueco entre teclas, como fracción del lado de una tecla (en el teclado físico ~10 %)
 const PAD = 8;
 // Anchos en «pasos de tecla» (tecla + hueco), medidos sobre la foto del teclado físico: todas las
