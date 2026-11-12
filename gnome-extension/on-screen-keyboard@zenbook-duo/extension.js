@@ -56,7 +56,8 @@ const ROWS = [
         fk(10, ['bluetooth-symbolic'], {cmd: ['zenbook-bluetooth', 'toggle']}),
         fk(11, ['face-smile-symbolic'], {combo: ['ctrl', '.']}),
         fk(12, ['applications-system-symbolic'], {}),
-        {icons: ['input-keyboard-symbolic'], main: '▾', action: 'hide', w: 1, small: true},   // sin equivalente físico: oculta el teclado
+        // Tecla de pantalla inferior: la misma acción que la física (zenbook-hotkeys, código 0x6a)
+        {icons: ['video-display-symbolic', 'preferences-desktop-display-symbolic'], cmd: ['zenbook-lower-screen', 'toggle'], w: 1, small: true},
         sp('', K('Print'), 1, {main: 'Prt Sc', small: true}),
         sp('Ins', K('Delete'), 1, {main: 'Delete', small: true, repeat: true, tagRight: true, fnSym: K('Insert'), fnMain: 'Ins'})]},
     {keys: [
@@ -352,7 +353,7 @@ class Keyboard {
         let realShift = false;
         const held = [];
 
-        if (def.fnum !== undefined && !fn) {
+        if ((def.fnum !== undefined && !fn) || (def.fnum === undefined && def.cmd)) {
             // Fila de funciones sin Fn: lo mismo que la tecla física (comando del proyecto o multimedia)
             if (def.cmd) {
                 try {
