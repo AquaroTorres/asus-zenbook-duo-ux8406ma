@@ -20,10 +20,14 @@ import {QuickToggle, SystemIndicator} from 'resource:///org/gnome/shell/ui/quick
 // cambie, cada tecla produce el carácter que muestra. Ninguna tecla toma el foco (can_focus: false):
 // la ventana activa sigue recibiendo el texto.
 // Shift, Ctrl, Alt, Win y Fn son de un solo uso (se sueltan tras la siguiente tecla); «Bloq Mayús» es fijo.
-const HEIGHT_FRACTION = 0.56;   // tope de alto; las teclas son cuadradas, así que el alto real sale del ancho disponible
-const FN_ROW_RATIO = 0.52;      // la fila de funciones es más baja que las demás
+const SCALE = 1.01;             // tamaño extra de las teclas; la fila de funciones conserva su alto
+const HEIGHT_FRACTION = 0.56 * SCALE;   // tope de alto; las teclas son cuadradas, así que el alto real sale del ancho disponible
+const FN_ROW_RATIO = 0.52 / SCALE;      // la fila de funciones es más baja que las demás
 const GAP_RATIO = 0.10;         // hueco entre teclas, como fracción del lado de una tecla (en el teclado físico ~10 %)
 const PAD = 8;
+// Tamaño físico fijo: no cambia con la resolución (el panel mide 302 mm de ancho y una tecla ~17,3 mm)
+const PANEL_WIDTH_MM = 302;
+const KEY_MM = 17.3;
 // Anchos en «pasos de tecla» (tecla + hueco), medidos sobre la foto del teclado físico: todas las
 // filas suman ROW_UNITS y las columnas de abajo quedan alineadas (< sobre Fn, Z sobre Win, X sobre Alt,
 // «,» sobre Alt Gr, «.» sobre Ctrl, «-» sobre Inicio, Shift derecho sobre △▽ + Fin).
@@ -63,7 +67,7 @@ const ROWS = [
         // Tecla de pantalla inferior: la misma acción que la física (zenbook-hotkeys, código 0x6a)
         {icons: ['video-display-symbolic', 'preferences-desktop-display-symbolic'], cmd: ['zenbook-lower-screen', 'toggle'], w: FNW, small: true},
         sp('', K('Print'), FNW, {main: 'Prt Sc', small: true}),
-        sp('Ins', K('Delete'), FNW, {main: 'Delete', small: true, repeat: true, tagRight: true, fnSym: K('Insert'), fnMain: 'Ins'})]},
+        sp('Ins', K('Delete'), FNW, {main: 'Delete', small: true, repeat: true, tagRight: true, fnSym: K('Insert'), fnMain: 'Ins', lowMain: true})]},
     {keys: [
         ch('|', '°', 1.14, {alt: '¬'}), ch('1', '!'), ch('2', '"'), ch('3', '#'), ch('4', '$'), ch('5', '%'), ch('6', '&'),
         ch('7', '/'), ch('8', '('), ch('9', ')'), ch('0', '='), ch("'", '?', 1, {alt: '\\'}), ch('¿', '¡'),
@@ -91,7 +95,7 @@ const ROWS = [
         {w: 1.2, stack: [
             sp('', K('Up'), 1, {main: '△ Re pág', fnMain: 'Re pág', fnSym: K('Page_Up'), repeat: true}),
             sp('', K('Down'), 1, {main: '▽ Av pág', fnMain: 'Av pág', fnSym: K('Page_Down'), repeat: true})]},
-        {w: 1.14, bottom: true, keys: [sp('', K('Right'), 1, {main: '▷', tag: 'Fin', fnMain: 'Fin', fnSym: K('End'), repeat: true})]},
+        {w: 1.14, bottom: true, keys: [sp('', K('Right'), 1, {main: 'Fin ▷', fnMain: 'Fin', fnSym: K('End'), repeat: true})]},
         ]},
 ];
 
@@ -110,6 +114,9 @@ class Keyboard {
         this._labels = [];     // {btn, def, main, sub}
         this._repeatId = 0;
         this._box = null;
+        this._close = null;
+        this._fnBtn = null;
+        this._showFn = false;   // fila de funciones oculta por defecto
         this._monitorsId = Main.layoutManager.connect('monitors-changed', () => this._place());
     }
 
@@ -122,6 +129,12 @@ class Keyboard {
             return;
         this._box = new St.BoxLayout({style_class: 'zosk-box', vertical: true, reactive: true});
         Main.layoutManager.addTopChrome(this._box, {affectsStruts: true});
+        this._close = new St.Button({style_class: 'zosk-key', label: '✕', reactive: true, can_focus: false});
+        this._close.connect('clicked', () => { this.onHide?.(); return Clutter.EVENT_STOP; });
+        Main.layoutManager.addTopChrome(this._close);
+        this._fnBtn = new St.Button({style_class: 'zosk-key', label: 'F', reactive: true, can_focus: false});
+        this._fnBtn.connect('clicked', () => { this._showFn = !this._showFn; this._place(); return Clutter.EVENT_STOP; });
+        Main.layoutManager.addTopChrome(this._fnBtn);
         this._place();
     }
 
@@ -132,6 +145,17 @@ class Keyboard {
         Main.layoutManager.removeChrome(this._box);
         this._box.destroy();
         this._box = null;
+        if (this._close) {
+            Main.layoutManager.removeChrome(this._close);
+            this._close.destroy();
+            this._close = null;
+        }
+        if (this._fnBtn) {
+            Main.layoutManager.removeChrome(this._fnBtn);
+            this._fnBtn.destroy();
+            this._fnBtn = null;
+        }
+        this._showFn = false;
         this._labels = [];
         this._state = NO_STATE();
     }
@@ -156,15 +180,28 @@ class Keyboard {
             return;
         const m = this._monitor();
         // Lado de una tecla cuadrada: el menor entre lo que cabe a lo ancho y a lo alto
-        const units = ROWS.reduce((n, r) => n + (r.fn ? FN_ROW_RATIO : 1), 0);
+        const rows = ROWS.filter(r => !r.fn || this._showFn);
+        const units = rows.reduce((n, r) => n + (r.fn ? FN_ROW_RATIO : 1), 0);
         // El hueco es proporcional al lado: una fila mide 15 lados + 14 huecos
         const fromW = (m.width - 2 * PAD) / (ROW_UNITS + (ROW_UNITS - 1) * GAP_RATIO);
-        const fromH = (m.height * HEIGHT_FRACTION - 2 * PAD) / (units + (ROWS.length - 1) * GAP_RATIO);
-        const side = Math.floor(Math.min(fromW, fromH));
+        // Lado fijo en milímetros (independiente de la resolución), recortado a lo que cabe a lo ancho
+        const side = Math.floor(Math.min(fromW, KEY_MM * SCALE * m.width / PANEL_WIDTH_MM));
         const gap = Math.round(side * GAP_RATIO);
-        const height = Math.round(units * side + gap * (ROWS.length - 1) + 2 * PAD);
+        const height = Math.round(units * side + gap * (rows.length - 1) + 2 * PAD);
         this._box.set_position(m.x, m.y + m.height - height);
         this._box.set_size(m.width, height);
+        // Botón pequeño para cerrar: esquina superior derecha del teclado
+        const closeSize = Math.floor(side * FN_ROW_RATIO * SCALE);
+        const btnW = Math.round(closeSize * 0.8);   // «F» y «✕» miden lo mismo (más angostos que altos)
+        this._close.set_size(btnW, closeSize);
+        this._close.set_position(m.x + m.width - btnW - PAD, m.y + m.height - height + PAD);
+        this._fnBtn.set_size(btnW, closeSize);
+        this._fnBtn.set_position(m.x + PAD, m.y + m.height - height + PAD);
+        this._fnBtn.style = `font-size: ${Math.max(10, Math.round(closeSize * 0.38))}px;`;
+        if (this._showFn)
+            this._fnBtn.add_style_class_name('on');
+        else
+            this._fnBtn.remove_style_class_name('on');
         this._build(side, gap);
     }
 
@@ -175,14 +212,18 @@ class Keyboard {
         this._labels = [];
         const fontPx = Math.max(12, Math.round(side * 0.3));
         for (const rowDef of ROWS) {
+            if (rowDef.fn && !this._showFn)
+                continue;
             const rowH = Math.floor(side * (rowDef.fn ? FN_ROW_RATIO : 1));
             const keys = rowDef.keys;
             // Las filas centradas: el teclado queda con teclas cuadradas y no ocupa todo el ancho
             const row = new St.BoxLayout({style: `spacing: ${gap}px;`, x_expand: true, x_align: Clutter.ActorAlign.CENTER});
-            const scale = 1;
+            let acc = 0;   // unidades acumuladas: los bordes se redondean por posición, no por tecla
             for (const def of keys) {
                 // Ancho = unidades × (lado + hueco) − hueco: las teclas anchas absorben los huecos que cubren
-                const w = Math.round(def.w * scale * (side + gap) - gap);
+                const step = side + gap;
+                const w = Math.round((acc + def.w) * step) - Math.round(acc * step) - gap;
+                acc += def.w;
                 if (def.stack) {
                     // Dos teclas apiladas (△ Re pág / ▽ Av pág), cada una de media altura
                     const col = new St.BoxLayout({vertical: true, style: `spacing: ${gap}px;`});
@@ -259,7 +300,8 @@ class Keyboard {
             });
         } else {
             main = new St.Label({
-                style: `font-size: ${Math.round(fontPx * (def.char !== undefined ? 1.2 : 0.95))}px;`,
+                // «Ins» queda arriba a la derecha: «Delete» baja para no pisarlo
+                style: `font-size: ${Math.round(fontPx * (def.char !== undefined ? 1.2 : 0.95))}px;${def.lowMain ? ` padding-top: ${Math.round(fontPx * 0.8)}px;` : ''}`,
                 x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
                 x_expand: true, y_expand: true,
             });
