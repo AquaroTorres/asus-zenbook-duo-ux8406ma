@@ -33,6 +33,31 @@ export default class SoltarEnPantallaExtension extends Extension {
         this._panels = [];
         this._pollId = 0;
         this._window = null;
+        // Con el dedo, global.get_pointer() no se mueve (queda donde estuvo el ratón, incluso en otro
+        // monitor). Se anota el último contacto táctil y, durante el arrastre, se estima el dedo con lo
+        // que se ha desplazado la ventana.
+        this._touch = false;
+        this._touchPos = null;
+        this._touchStartRect = null;
+        this._eventId = global.stage.connect('captured-event', (_s, event) => {
+            switch (event.type()) {
+            case Clutter.EventType.TOUCH_BEGIN:
+            case Clutter.EventType.TOUCH_UPDATE:
+                this._touch = true;
+                // Si llegan avisos durante el arrastre se usan tal cual (this._touchLive)
+                if (this._window && event.type() === Clutter.EventType.TOUCH_UPDATE)
+                    this._touchLive = true;
+                if (!this._window || this._touchLive)
+                    this._touchPos = event.get_coords();
+                break;
+            case Clutter.EventType.MOTION:
+            case Clutter.EventType.BUTTON_PRESS:
+                if (!this._window)
+                    this._touch = false;
+                break;
+            }
+            return Clutter.EVENT_PROPAGATE;
+        });
         this._signals = [
             global.display.connect('grab-op-begin', (_d, window, op) => this._begin(window, op)),
             global.display.connect('grab-op-end', (_d, window, op) => this._end(window, op)),
@@ -42,6 +67,9 @@ export default class SoltarEnPantallaExtension extends Extension {
     disable() {
         this._signals.forEach(id => global.display.disconnect(id));
         this._signals = [];
+        if (this._eventId)
+            global.stage.disconnect(this._eventId);
+        this._eventId = 0;
         this._hide();
     }
 
@@ -61,6 +89,20 @@ export default class SoltarEnPantallaExtension extends Extension {
         return monitors.find(({rect: r}) => px >= r.x && px < r.x + r.width && py >= r.y && py < r.y + r.height) ?? null;
     }
 
+    // Posición del puntero o del dedo
+    _pointer() {
+        if (this._touch && this._touchPos && this._window && this._touchStartRect) {
+            if (this._touchLive)
+                return this._touchPos;
+            // Sin avisos del dedo: se deduce de la ventana. Al des-maximizar, Mutter la reduce y deja
+            // el dedo en la misma proporción horizontal y a la misma distancia vertical del borde.
+            const r = this._window.get_frame_rect();
+            const s = this._touchStartRect;
+            return [r.x + (this._touchPos[0] - s.x) * r.width / s.width, r.y + (this._touchPos[1] - s.y)];
+        }
+        return global.get_pointer();
+    }
+
     _begin(window, op) {
         if (!window || !MOVING.includes(op))
             return;
@@ -68,10 +110,15 @@ export default class SoltarEnPantallaExtension extends Extension {
         // Con la pantalla inferior apagada queda una sola: el panel aparece igual, con una fila
         if (monitors.length < 1)
             return;
-        const [px, py] = global.get_pointer();
+        this._window = window;
+        this._touchStartRect = window.get_frame_rect();
+        this._touchLive = false;
+        const [px, py] = this._pointer();
         const host = this._hostAt(monitors, px, py);
-        if (!host)
+        if (!host) {
+            this._window = null;
             return;
+        }
 
         this._window = window;
         // Estado previo al arrastre, para devolver la ventana a su sitio antes de cambiarla de pantalla.
@@ -145,7 +192,7 @@ export default class SoltarEnPantallaExtension extends Extension {
     _zoneAtPointer() {
         if (!this._panels?.length)
             return null;
-        const [px, py] = global.get_pointer();
+        const [px, py] = this._pointer();
         return this._zones.find(({zone}) => {
             const [x, y] = zone.get_transformed_position();
             const [w, h] = zone.get_transformed_size();
