@@ -1,0 +1,13 @@
+[Unit]
+Description=Zenbook Duo - apaga la luz del teclado por inactividad
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStartPre=/bin/sleep 5
+ExecStart=/usr/local/bin/zenbook-keyboard-idle watch
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

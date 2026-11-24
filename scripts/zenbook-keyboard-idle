@@ -1,0 +1,53 @@
+#!/bin/bash
+# Apaga la luz del teclado tras un rato sin usar el equipo y la devuelve al volver
+#
+# Uso: zenbook-keyboard-idle watch
+#
+# Es lo que más gasta de la batería del teclado: la luz encendida. Mide la inactividad con el
+# monitor de inactividad de Mutter (la misma que usa GNOME para atenuar la pantalla y suspender),
+# así que cuenta teclado, ratón y táctil. Solo actúa si se conoce el nivel de la luz
+# (KB_STATE_FILE, que escribe zenbook-keyboard-backlight al cambiarlo, p. ej. con F4): el teclado no
+# informa su nivel, y restaurar uno inventado encendería una luz que estaba apagada.
+
+KB_STATE_FILE="/tmp/kb-backlight-level"
+KB_IDLE_SECONDS=300          # 5 min
+[[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+
+function _idle_seconds() {
+    local ms
+    ms=$(gdbus call --session --dest org.gnome.Mutter.IdleMonitor \
+        --object-path /org/gnome/Mutter/IdleMonitor/Core \
+        --method org.gnome.Mutter.IdleMonitor.GetIdletime 2>/dev/null | grep -oP 'uint64 \K\d+')
+    [[ -n "$ms" ]] && echo $(( ms / 1000 ))
+}
+
+function _watch() {
+    local saved="" idle level
+    echo "Vigilando inactividad: luz del teclado fuera tras ${KB_IDLE_SECONDS} s"
+    while true; do
+        idle=$(_idle_seconds)
+        if [[ -z "$idle" ]]; then sleep 10; continue; fi
+        level=$(cat "$KB_STATE_FILE" 2>/dev/null)
+        if [[ -z "$saved" ]]; then
+            if (( idle >= KB_IDLE_SECONDS )) && [[ "$level" =~ ^[1-3]$ ]]; then
+                if zenbook-keyboard-backlight 0 -q > /dev/null 2>&1; then
+                    saved="$level"
+                    echo "$(date '+%F %T') - inactivo ${idle} s: luz apagada (nivel $saved guardado)"
+                fi
+            fi
+        elif (( idle < 5 )); then
+            # Solo se devuelve si nadie cambió la luz mientras tanto (p. ej. F4)
+            if [[ "$level" == "0" ]]; then
+                zenbook-keyboard-backlight "$saved" -q > /dev/null 2>&1 \
+                    && echo "$(date '+%F %T') - actividad: luz al nivel $saved"
+            fi
+            saved=""
+        fi
+        sleep $(( saved ? 3 : 10 ))
+    done
+}
+
+case "${1:-}" in
+    watch) _watch ;;
+    *) echo "Uso: zenbook-keyboard-idle watch"; exit 1 ;;
+esac

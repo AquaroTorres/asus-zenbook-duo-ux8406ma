@@ -1,15 +1,18 @@
 #!/bin/bash
-# Hace que la pantalla de inicio de sesión (GDM) use la misma disposición que tu sesión:
-# pantalla superior (eDP-1) principal y la inferior (eDP-2) justo debajo.
+# Deja la pantalla inferior (eDP-2) APAGADA en la pantalla de inicio de sesión (GDM): solo la
+# superior (eDP-1) muestra el cuadro de inicio de sesión. Al iniciar sesión, tu
+# ~/.config/monitors.xml vuelve a encender las dos.
 #
 # GDM no lee ~/.config/monitors.xml: su greeter tiene su propia configuración en
 # /var/lib/gdm/seat0/config/ (su XDG_CONFIG_HOME; GDM usa usuarios dinámicos). Sin un
-# monitors.xml ahí, Mutter coloca las pantallas por defecto una al lado de la otra, y solo al
-# iniciar sesión pasan a su sitio.
+# monitors.xml ahí, Mutter coloca las pantallas por defecto una al lado de la otra, ambas encendidas.
 #
 # Toma de tu ~/.config/monitors.xml la configuración de exactamente eDP-1 + eDP-2 (con el serial
-# del EDID personalizado de eDP-2, ver install-lower-screen-edid.sh) y la copia al greeter. Es idempotente.
+# del EDID personalizado de eDP-2, ver install-lower-screen-edid.sh), valida que sea la esperada y
+# escribe en el greeter una con solo eDP-1 y eDP-2 en <disabled> (la clave de coincidencia de Mutter
+# es el conjunto de pantallas conectadas, así que eDP-2 debe figurar como desactivada). Es idempotente.
 # Vuelve a ejecutarlo si cambias la escala de las pantallas.
+# No controla lo anterior al greeter (GRUB, Plymouth, consola del kernel).
 set -e
 
 SRC="$HOME/.config/monitors.xml"
@@ -27,6 +30,7 @@ TMP=$(mktemp)
 trap 'rm -f "$TMP"' EXIT
 
 python3 - "$SRC" "$TMP" "$MONITOR_UPPER" "$MONITOR_LOWER" "$PANEL_LOWER_SERIAL" << 'PYEOF'
+import copy
 import sys
 import xml.etree.ElementTree as ET
 
@@ -60,13 +64,26 @@ if problems:
     sys.exit("La configuración encontrada no es la esperada: " + "; ".join(problems) +
              ". Arréglala con `zenbook-lower-screen on` y vuelve a ejecutar.")
 
+# Greeter: solo la pantalla superior; la inferior queda desactivada
+greeter = ET.Element('configuration')
+ET.SubElement(greeter, 'layoutmode').text = chosen.find('layoutmode').text
+greeter.append(m)
+disabled = ET.SubElement(greeter, 'disabled')
+disabled.append(s.find('monitor/monitorspec'))
+
+# Con el kernel apagando eDP-2 (video=eDP-2:d) en el greeter solo hay una pantalla conectada y la
+# clave de coincidencia es {eDP-1}; sin ese kernel (o si se reconecta) son las dos, con eDP-2 desactivada.
+solo = ET.Element('configuration')
+ET.SubElement(solo, 'layoutmode').text = chosen.find('layoutmode').text
+solo.append(copy.deepcopy(m))
+
 new = ET.Element('monitors', version=root.get('version', '2'))
-new.append(chosen)
+new.append(solo)
+new.append(greeter)
 ET.indent(new)
 ET.ElementTree(new).write(out, encoding='unicode', xml_declaration=False)
 open(out, 'a').write('\n')
-print(f"Configuración elegida: {upper} principal en ({x(m,'x')},{x(m,'y')}), "
-      f"{lower} en ({x(s,'x')},{x(s,'y')}), escala {m.find('scale').text}")
+print(f"Greeter: {upper} principal en ({x(m,'x')},{x(m,'y')}), escala {m.find('scale').text}; {lower} apagada")
 PYEOF
 
 OWNER=$(sudo stat -c '%u:%g' "$DEST_DIR")

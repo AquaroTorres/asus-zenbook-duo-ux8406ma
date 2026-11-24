@@ -1,7 +1,8 @@
 #!/bin/bash
 # Retroiluminación del teclado del ASUS Zenbook Duo UX8406MA
 #
-# Uso: zenbook-keyboard-backlight [0|1|2|3|cycle|status]
+# Uso: zenbook-keyboard-backlight [0|1|2|3|cycle|status] [-q]
+#   -q  sin indicador en pantalla (lo usa zenbook-keyboard-idle)
 #   0-3     Nivel (apagada / baja / media / alta)
 #   cycle   0→1→2→3→0
 #   status  Conexión y nivel actual
@@ -104,20 +105,20 @@ PYEOF
 }
 
 function _set_level() {
-    local level="$1" previous
+    local level="$1" previous  # $2 = -q (sin aviso)
     if [[ $EUID -ne 0 ]]; then
         previous=$(cat "$KB_STATE_FILE" 2>/dev/null)
         sudo -n "$0" "$level" || exit 1
         # La parte privilegiada no llega a la sesión gráfica: el aviso lo envía el usuario
-        [[ "$previous" != "$level" ]] && _osd "$level"
-        return
+        if [[ "$previous" != "$level" && "$2" != "-q" ]]; then _osd "$level"; fi
+        return 0
     fi
     _set_level_root "$level" && echo "$level" > "$KB_STATE_FILE"
 }
 
 case "${1:-status}" in
     0|1|2|3)
-        _set_level "$1"
+        _set_level "$1" "$2"
         ;;
     cycle)
         current=$(cat "$KB_STATE_FILE" 2>/dev/null)

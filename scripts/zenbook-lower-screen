@@ -60,7 +60,8 @@ function _on() {
     esac
     gdctl set \
         --logical-monitor --primary --scale "$scale" --monitor "$MONITOR_UPPER" --transform "$transform" \
-        --logical-monitor --scale "$scale" --monitor "$MONITOR_LOWER" "${side[@]}" --transform "$transform"
+        --logical-monitor --scale "$scale" --monitor "$MONITOR_LOWER" "${side[@]}" --transform "$transform" \
+        || { echo "No se pudo encender la pantalla inferior (gdctl set falló)" >&2; return 1; }
     _osd on
     echo "Pantalla inferior encendida"
     # Reaplica el mapeo de touchscreens tras cambiar la topología
