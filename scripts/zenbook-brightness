@@ -12,6 +12,10 @@ BACKLIGHT_LOWER="/sys/class/backlight/card1-eDP-2-backlight"
 BRIGHTNESS_STEP=5   # % del máximo por pulsación en up/down
 BRIGHTNESS_MIN=4
 [[ -r /etc/zenbook-duo.conf ]] && source /etc/zenbook-duo.conf
+# El número de card DRM cambia entre kernels (card0/card1): si la ruta no existe, se busca
+[[ -d "$BACKLIGHT_LOWER" ]] || for _b in /sys/class/backlight/card*-eDP-2-backlight; do
+    [[ -d "$_b" ]] && BACKLIGHT_LOWER="$_b" && break
+done
 
 # Indicador en pantalla de GNOME (lo muestra la extensión on-screen-display por D-Bus)
 function _osd() { gdbus call --session --dest org.gnome.Shell --object-path /org/zenbook/Osd --method "org.zenbook.Osd.$1" "${@:2}" > /dev/null 2>&1; }

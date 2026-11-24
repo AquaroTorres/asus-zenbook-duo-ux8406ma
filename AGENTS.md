@@ -21,7 +21,7 @@ se llaman entre sí por `PATH` (`/usr/local/bin`).
 | Pantallas | Dos paneles SDC `419d`, conectores `eDP-1` (arriba) y `eDP-2` (abajo). EDID idéntico y sin serial. |
 | Teclado | Desmontable. USB `0b05:1b2c` (nombre `Primax Electronics Ltd. ASUS Zenbook Duo Keyboard`) o Bluetooth (`ASUS Zenbook Duo Keyboard`). |
 | Touchscreens | `ELAN9008:00 04F3:425B` → eDP-1, `ELAN9009:00 04F3:425A` → eDP-2 (más sus `Stylus`). |
-| Backlights | `/sys/class/backlight/intel_backlight` (eDP-1) y `card1-eDP-2-backlight` (eDP-2, el número de `card` puede cambiar). Máximo 400. |
+| Backlights | `/sys/class/backlight/intel_backlight` (eDP-1) y `card0-eDP-2-backlight` (eDP-2; el número de `card` cambia entre kernels: era `card1` y con el kernel 7.3.4 pasó a `card0`; `zenbook-brightness` lo busca si la ruta configurada no existe). Máximo 400. |
 
 ## Protocolos del teclado
 

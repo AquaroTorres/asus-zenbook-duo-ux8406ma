@@ -124,7 +124,7 @@ por defecto.
 |---|---|---|
 | `MONITOR_UPPER` / `MONITOR_LOWER` | `eDP-1` / `eDP-2` | Conectores (`gdctl show`) |
 | `BRIGHTNESS_STEP` / `BRIGHTNESS_MIN` | `5` / `4` | Paso de F5/F6 (% del máximo) y brillo mínimo (valor crudo) |
-| `BACKLIGHT_UPPER` / `BACKLIGHT_LOWER` | `intel_backlight` / `card1-eDP-2-backlight` | Backlights en `/sys/class/backlight/` (el segundo depende del número de `card`) |
+| `BACKLIGHT_UPPER` / `BACKLIGHT_LOWER` | `intel_backlight` /  `card0-eDP-2-backlight` | Backlights en `/sys/class/backlight/` (el segundo depende del número de `card`; si la ruta no existe, el script busca `card*-eDP-2-backlight`) |
 | `KB_NAME` | `Zenbook Duo` | Texto que identifica al teclado |
 | `KB_USB_ID` | `0b05:1b2c` | Vendor:Product del teclado por USB (`lsusb`) |
 | `KB_STATE_FILE` | `/tmp/kb-backlight-level` | Dónde se guarda el nivel de luz |
