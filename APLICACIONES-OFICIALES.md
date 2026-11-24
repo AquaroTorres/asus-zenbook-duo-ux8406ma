@@ -38,8 +38,8 @@ No hay equivalentes oficiales. Este proyecto cubre:
 
 | Windows | Linux (este proyecto) |
 |---|---|
-| ScreenXpert | Pantalla inferior (`zenbook-lower-screen`), rotación (`zenbook-screen-rotation`), `move-window`, `swap-screens`, `drag-to-screen` |
-| ASUS System Control Interface | Teclas F4 a F12 (`zenbook-hotkeys`), bloqueo Fn (`zenbook-fn-lock`), micrófono (`zenbook-microphone`), brillo (`zenbook-brightness`, `monitor-brightness`) |
+| ScreenXpert | Pantalla inferior (`zenbook-lower-screen`), rotación (`zenbook-screen-rotation`), `move-window`, `drag-to-screen` (`swap-screens`, sin instalar) |
+| ASUS System Control Interface | Teclas F4 a F12 (`zenbook-hotkeys`), bloqueo Fn (`zenbook-fn-lock`), micrófono (`zenbook-microphone`), brillo (`zenbook-brightness`) |
 | MyASUS (límite de carga) | Extensión `battery-charge-limit` (UPower) |
 | MyASUS (batería de periféricos) | Extensión `bluetooth-battery` |
 

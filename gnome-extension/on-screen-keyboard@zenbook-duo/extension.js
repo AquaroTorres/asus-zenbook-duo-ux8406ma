@@ -127,7 +127,7 @@ class Keyboard {
     show() {
         if (this._box)
             return;
-        this._box = new St.BoxLayout({style_class: 'zosk-box', vertical: true, reactive: true});
+        this._box = new St.BoxLayout({style_class: 'zosk-box', orientation: Clutter.Orientation.VERTICAL, reactive: true});
         Main.layoutManager.addTopChrome(this._box, {affectsStruts: true});
         this._close = new St.Button({style_class: 'zosk-key', label: '✕', reactive: true, can_focus: false});
         this._close.connect('clicked', () => { this.onHide?.(); return Clutter.EVENT_STOP; });
@@ -226,13 +226,13 @@ class Keyboard {
                 acc += def.w;
                 if (def.stack) {
                     // Dos teclas apiladas (△ Re pág / ▽ Av pág), cada una de media altura
-                    const col = new St.BoxLayout({vertical: true, style: `spacing: ${gap}px;`});
+                    const col = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style: `spacing: ${gap}px;`});
                     const half = Math.floor((rowH - gap) / 2);
                     def.stack.forEach(d => col.add_child(this._makeKey(d, w, half, Math.round(fontPx * 0.8))));
                     row.add_child(col);
                 } else if (def.bottom) {
                     // Tecla de media altura pegada abajo (◁ Inicio, Fin ▷)
-                    const col = new St.BoxLayout({vertical: true, y_align: Clutter.ActorAlign.END});
+                    const col = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, y_align: Clutter.ActorAlign.END});
                     const half = Math.floor((rowH - gap) / 2);
                     col.add_child(this._makeKey(def.keys[0], w, half, Math.round(fontPx * 0.8)));
                     row.add_child(col);
@@ -280,7 +280,7 @@ class Keyboard {
                 return r;
             };
             main = new St.BoxLayout({
-                vertical: true, style: 'spacing: 2px;',
+                orientation: Clutter.Orientation.VERTICAL, style: 'spacing: 2px;',
                 x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER,
                 x_expand: true, y_expand: true,
             });

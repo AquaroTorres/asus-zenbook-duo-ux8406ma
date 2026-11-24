@@ -55,7 +55,7 @@ class BatteryRow extends St.BoxLayout {
 const BatteryList = GObject.registerClass(
 class BatteryList extends St.BoxLayout {
     _init() {
-        super._init({vertical: true, x_expand: true, style: 'padding: 4px 12px;', visible: false});
+        super._init({orientation: Clutter.Orientation.VERTICAL, x_expand: true, style: 'padding: 4px 12px;', visible: false});
         this._rows = [];
     }
 

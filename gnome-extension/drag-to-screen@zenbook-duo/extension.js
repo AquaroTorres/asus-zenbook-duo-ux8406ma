@@ -133,7 +133,7 @@ export default class SoltarEnPantallaExtension extends Extension {
 
         // Un solo panel: una fila por pantalla de destino, con una disposición por icono.
         {
-            const panel = new St.BoxLayout({style_class: 'soltar-panel', vertical: true, reactive: false});
+            const panel = new St.BoxLayout({style_class: 'soltar-panel', orientation: Clutter.Orientation.VERTICAL, reactive: false});
             monitors.forEach((target, i) => {
                 const row = new St.BoxLayout({style_class: 'soltar-fila'});
                 row.add_child(new St.Label({text: names[i], style_class: 'soltar-nombre', y_align: Clutter.ActorAlign.CENTER}));
@@ -160,7 +160,7 @@ export default class SoltarEnPantallaExtension extends Extension {
 
     // Icono de una disposición: rejilla de zonas que se registran en this._zones con su fracción.
     _buildTile(layout, monitor) {
-        const tile = new St.BoxLayout({style_class: 'soltar-tile', vertical: true, x_expand: false});
+        const tile = new St.BoxLayout({style_class: 'soltar-tile', orientation: Clutter.Orientation.VERTICAL, x_expand: false});
         for (let r = 0; r < layout.rows; r++) {
             const line = new St.BoxLayout({style_class: 'soltar-linea', x_expand: true, y_expand: true});
             for (let c = 0; c < layout.cols; c++) {

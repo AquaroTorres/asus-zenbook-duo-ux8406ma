@@ -4,7 +4,7 @@ Un script por función para controlar el Zenbook Duo en Manjaro/Arch con GNOME
 (Wayland), más doce extensiones de GNOME Shell. Cada script es independiente y
 se puede usar solo.
 
-> **Aviso:** probado únicamente en un **ASUS Zenbook Duo UX8406MA** con **Manjaro** y **GNOME 50 (Wayland)**.
+> **Aviso:** probado únicamente en un **ASUS Zenbook Duo UX8406MA** con **Manjaro** y **GNOME 50 y 51 (Wayland)**.
 > Otros modelos, distribuciones o versiones de GNOME pueden no funcionar, y los instaladores modifican el
 > sistema (`/usr/local/bin`, sudoers, udev, y con `install-lower-screen-edid.sh` el initramfs y GRUB). Revisa
 > los scripts antes de ejecutarlos. Se ofrece sin garantía, bajo licencia GPL-3.
@@ -26,7 +26,7 @@ Detalles técnicos y decisiones de diseño: [AGENTS.md](AGENTS.md).
 | `zenbook-microphone` | Silencia o activa el micrófono y mantiene la luz de F9 sincronizada (servicio con `watch`) |
 | `zenbook-fn-lock` | Activa, desactiva, alterna o lee el bloqueo Fn del teclado |
 | `zenbook-move-window` | Mueve la ventana activa a la otra pantalla (F8); no hace nada con la inferior apagada |
-| `zenbook-swap-screens` | Intercambia todas las ventanas entre las dos pantallas; respaldo, sin tecla asignada |
+| `zenbook-swap-screens` | Intercambia todas las ventanas entre las dos pantallas; respaldo, sin tecla asignada y sin su extensión instalada |
 | `zenbook-screen-rotation` | Rota las pantallas a mano o automáticamente con el acelerómetro (servicio con `auto`) |
 | `zenbook-touchscreen` | Asigna cada touchscreen a su pantalla |
 | `zenbook-bluetooth` | Enciende, apaga o alterna el Bluetooth |
@@ -359,7 +359,7 @@ Cambia y lee el bloqueo Fn del teclado (reporte `5a d0 4e <0|1>`):
 
 ## Extensiones de GNOME Shell
 
-Para GNOME Shell 50. Se instalan en `~/.local/share/gnome-shell/extensions/`.
+Para GNOME Shell 50 y 51. Se instalan en `~/.local/share/gnome-shell/extensions/`, **salvo `swap-screens` y `monitor-brightness`**, que quedan en el repo sin instalarse (el instalador las retira si estaban instaladas; para usarlas, cópialas a esa carpeta y habilítalas).
 
 | Extensión | Dónde aparece | Qué hace |
 |---|---|---|
