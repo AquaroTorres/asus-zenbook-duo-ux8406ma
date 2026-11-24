@@ -3,6 +3,7 @@
   "name": "Pantalla inferior",
   "description": "Botón en Ajustes rápidos para encender y apagar la pantalla inferior del Zenbook Duo.",
   "shell-version": [
-    "50"
+    "50",
+    "51"
   ]
 }

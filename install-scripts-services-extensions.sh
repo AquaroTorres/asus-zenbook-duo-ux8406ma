@@ -50,9 +50,9 @@ for old in zenbook-screenkey zenbook-autorotate zenbook-mic zenbook-monitor zenb
 done
 cp "$DIR"/systemd/user/*.service "$HOME/.config/systemd/user/"
 systemctl --user daemon-reload
-systemctl --user enable --now zenbook-hotkeys.service zenbook-screen-rotation.service zenbook-microphone.service zenbook-keyboard-monitor.service
+systemctl --user enable --now zenbook-hotkeys.service zenbook-screen-rotation.service zenbook-microphone.service zenbook-keyboard-monitor.service zenbook-keyboard-idle.service
 # enable --now no reinicia un servicio que ya corre: sin esto seguiría con el script anterior
-systemctl --user restart zenbook-hotkeys.service zenbook-screen-rotation.service zenbook-microphone.service zenbook-keyboard-monitor.service
+systemctl --user restart zenbook-hotkeys.service zenbook-screen-rotation.service zenbook-microphone.service zenbook-keyboard-monitor.service zenbook-keyboard-idle.service
 
 echo "==> Extensiones de GNOME"
 # Se retiran las extensiones con identificadores anteriores (@atorres, nombres en español) y las ya
@@ -61,8 +61,17 @@ for uuid in osd-zenbook@atorres pantalla-inferior@atorres rotacion-pantalla@ator
     gnome-extensions disable "$uuid" 2>/dev/null || true
     rm -rf "$HOME/.local/share/gnome-shell/extensions/$uuid"
 done
+# Estas extensiones quedan en el repo pero no se instalan (decisión del usuario, 2026-11-24): el
+# brillo independiente ya funciona en GNOME 51 y swap-screens es solo un respaldo sin tecla.
+# Si estaban instaladas, se retiran.
+NOT_INSTALLED="monitor-brightness@zenbook-duo swap-screens@zenbook-duo"
+for uuid in $NOT_INSTALLED; do
+    gnome-extensions disable "$uuid" 2>/dev/null || true
+    rm -rf "$HOME/.local/share/gnome-shell/extensions/$uuid"
+done
 for ext in "$DIR"/gnome-extension/*@*; do
     uuid=$(basename "$ext")
+    [[ " $NOT_INSTALLED " == *" $uuid "* ]] && continue
     mkdir -p "$HOME/.local/share/gnome-shell/extensions/$uuid"
     cp "$ext"/* "$HOME/.local/share/gnome-shell/extensions/$uuid/"
     gnome-extensions enable "$uuid" || true
